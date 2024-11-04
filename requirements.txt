@@ -1,0 +1,9 @@
+cffi==1.17.1
+essentia==2.1b6.dev1110
+essentia-tensorflow==2.1b6.dev1110
+numpy==1.26.4
+pycparser==2.22
+PySoundCard==0.5.2
+PyYAML==6.0.2
+six==1.16.0
+SoundCard==0.4.3
