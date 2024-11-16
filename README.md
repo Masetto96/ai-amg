@@ -1,15 +1,37 @@
-# AI affective music generation system
+# AI Affective Music Generation System
 
-1. Read in data from eeg and estimate emotional state (valence and arousal)
-2. Generate music based on valence and arousal
-3. Evaluate the generated music using a pre-trained model which computes valence and arousal values
-
+A system that generates music based on emotional states detected from EEG signals and evaluates the musical output using emotion detection models.
 
 ## Overview
-- Capture audio output from the system using [SoundCard](https://pypi.org/project/SoundCard/)
-- Compute valence and arousal values using [Essentia Valence and Arousal Model](https://essentia.upf.edu/models.html#arousal-valence-deam)
-- Connecting MUSE headset to python using [muse-lsl](https://github.com/alexandrebarachant/muse-lsl)
 
+The system operates in three main steps:
+1. Read EEG data to estimate emotional state (valence and arousal)
+2. Generate music based on valence and arousal
+3. Evaluate generated music using pre-trained emotion detection models
+
+
+### 1. Emotion Detection (EEG)
+- Uses MUSE headset with [muse-lsl](https://github.com/alexandrebarachant/muse-lsl) for brain signal processing
+- TODO: Implement EEG signal processing to extract alpha and beta waves
+
+### 2. Music Generation
+
+- Rule based chord progression generator with emotion-based parameters
+- Real-time Ableton Live control via OSC
+- Every 16 beats, it generates a new chord progression based on valence and arousal.
+- Continuosly control parameter of ableton tracks based on valence and arousal.
+- TODO: Fix missing chords in progression generation
+
+#### In Details
+Track 1 (piano): mapping emotions to macro params of ableton. What else we got?
+Track 2 (arpeggiator): Control arp rate based on arousal, this for rhythm!; Control dry/wet of saturator based of inverse valence
+Track 3 (bass): weighted sum to control drive param
+Track 4 (drums): Control frequency of filter; Note that drums is an audio clip and not midi
+
+### 3. Music Evaluation
+- Uses [Essentia Valence and Arousal Model](https://essentia.upf.edu/models.html#arousal-valence-deam)
+- Captures system audio using [SoundCard](https://pypi.org/project/SoundCard/)
+- Real-time emotion detection from generated music
 
 ## Installation
 
@@ -17,24 +39,22 @@
 pip install -r requirements.txt
 ```
 
-
 ## Usage
-To view all avaliable muse devices to connect:
+
+Connect MUSE headset:
 ```bash
+# List available devices
 muselsl list
+
+# Start streaming
+muselsl stream --address <address>
 ```
-
-To start streaming eeg data:
-```bash
-muselsl stream --address <address> 
-```
-
-
-
-## TODO:
-- implement eeg signal processing to extract alpha and beta waves, following [this](https://github.com/alexandrebarachant/muse-lsl/blob/master/examples/neurofeedback.py) & using the formulas from the liteature
-- implement affective music generation system which receives valence and arousal as input
-
 
 ## Troubleshooting
-- To debug the real-time predictions with essentia, refer to [this](https://essentia.upf.edu/tutorial_tensorflow_real-time_auto-tagging.html); Note that we dont need to use the spectrogram!
+
+For real-time Essentia predictions debugging, refer to [this tutorial](https://essentia.upf.edu/tutorial_tensorflow_real-time_auto-tagging.html)
+
+## Future Development
+- Orchestrate EEG with music generation
+- Global modulation system (BPM, volume based on emotions)
+- Refined drum and bass generation

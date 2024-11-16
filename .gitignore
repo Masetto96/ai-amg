@@ -6,6 +6,8 @@ __pycache__/
 # hidden venv
 .*
 
+music_gen/midis
+music_gen/models
 
 # C extensions
 *.so
