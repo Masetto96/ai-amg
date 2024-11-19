@@ -8,59 +8,90 @@ and buffers the data for future use or analysis.
 Adapted from https://github.com/NeuroTechX/bci-workshop
 """
 
-import numpy as np  # Module that simplifies computations on matrices
-from pylsl import StreamInlet, resolve_byprop  # Module to receive EEG data
-import utils  # Utility functions for buffering
+import numpy as np
+from pylsl import StreamInlet, resolve_byprop
+from utils import update_buffer  # Import the required buffer update utility
 
-""" EXPERIMENTAL PARAMETERS """
-BUFFER_LENGTH = 5  # Length of the EEG data buffer (in seconds)
-SHIFT_LENGTH = 1  # Amount to 'shift' the start of each next epoch (1 second)
+# Configuration Parameters
+BUFFER_LENGTH = 5  # EEG buffer length in seconds
+SHIFT_LENGTH = 1   # Time (in seconds) to shift buffer for new data
+NOTCH_FILTER = True  # Enable/Disable notch filtering
 
-if __name__ == "__main__":
-
-    """ 1. CONNECT TO EEG STREAM """
-
-    # Search for an active EEG stream
-    print('Looking for an EEG stream...')
+def connect_to_eeg_stream():
+    """
+    Resolves and connects to the first available EEG stream using LSL.
+    
+    Returns:
+        inlet (StreamInlet): LSL StreamInlet for the EEG data
+        fs (int): Sampling frequency of the EEG stream
+        channel_count (int): Number of EEG channels
+    """
+    print("Looking for an EEG stream...")
     streams = resolve_byprop('type', 'EEG', timeout=2)
-    if len(streams) == 0:
-        raise RuntimeError("Can't find EEG stream.")
-
-    # Set the active EEG stream to an inlet and apply time correction
-    print("Start acquiring data")
+    if not streams:
+        raise RuntimeError("No EEG streams found.")
+    
+    print("Connecting to the EEG stream...")
     inlet = StreamInlet(streams[0], max_chunklen=12)
-    eeg_time_correction = inlet.time_correction()
+    fs = int(inlet.info().nominal_srate())
+    channel_count = inlet.info().channel_count()
+    return inlet, fs, channel_count
 
-    # Get the stream info and description
-    info = inlet.info()
-    fs = int(info.nominal_srate())  # Get the sampling frequency
-    channel_count = info.channel_count()  # Get the number of available channels
+def initialize_buffer(fs, channel_count, buffer_length=BUFFER_LENGTH):
+    """
+    Initializes an empty buffer for EEG data.
 
-    """ 2. INITIALIZE BUFFER """
+    Args:
+        fs (int): Sampling frequency
+        channel_count (int): Number of EEG channels
+        buffer_length (int): Buffer length in seconds
+    
+    Returns:
+        eeg_buffer (np.ndarray): Zero-initialized buffer
+    """
+    return np.zeros((int(fs * buffer_length), channel_count))
 
-    # Initialize an EEG data buffer for all channels
-    eeg_buffer = np.zeros((int(fs * BUFFER_LENGTH), channel_count))
-    filter_state = None  # for use with the notch filter
-
-    print("Press Ctrl-C in the console to break the while loop.")
-
+def main():
+    """
+    Main loop to acquire EEG data and buffer it in real-time.
+    """
     try:
+        # Step 1: Connect to EEG stream
+        inlet, fs, channel_count = connect_to_eeg_stream()
+        print(f"Number of channels {channel_count}")
+        eeg_buffer = initialize_buffer(fs, channel_count)
+        filter_state = None
+
+        print("Press Ctrl+C to stop data acquisition.")
         while True:
+            # Step 2: Acquire data from the stream
+            eeg_data, timestamps = inlet.pull_chunk(
+                timeout=1, max_samples=int(SHIFT_LENGTH * fs)
+            )
+                 
+            if not eeg_data:
+                print("No data received from the stream.")
+                continue
 
-            """ 3. ACQUIRE AND BUFFER DATA """
-            # Obtain EEG data from the LSL stream
-            eeg_data, timestamp = inlet.pull_chunk(
-                timeout=1, max_samples=int(SHIFT_LENGTH * fs))
+            # Convert data to NumPy array
+            new_data = np.array(eeg_data)
 
-            # Convert the data to a NumPy array and keep all channels
-            ch_data = np.array(eeg_data)
+            # Step 3: Update buffer
+            eeg_buffer, filter_state = update_buffer(
+                eeg_buffer, new_data, notch=NOTCH_FILTER, filter_state=filter_state
+            )
 
-            # Update the EEG buffer with the new data for all channels
-            eeg_buffer, filter_state = utils.update_buffer(
-                eeg_buffer, ch_data, notch=True, filter_state=filter_state)
+            print(eeg_buffer)
 
-            # Print the updated buffer contents (optional)
-            print("EEG buffer updated with latest data for all channels")
+            print("Buffer updated with new data.")
+            # Additional processing can be added here (e.g., feature extraction)
 
     except KeyboardInterrupt:
-        print("Closing!")
+        print("\nData acquisition stopped by the user.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+    finally:
+        print("Closing EEG stream.")
+
+if __name__ == "__main__":
+    main()

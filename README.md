@@ -12,12 +12,12 @@ The system operates in three main steps:
 
 ### 1. Emotion Detection (EEG)
 - Uses MUSE headset with [muse-lsl](https://github.com/alexandrebarachant/muse-lsl) for brain signal processing
-- TODO: Implement EEG signal processing to extract alpha and beta waves
+- TODO: Implement EEG signal processing to extract alpha and beta waves;
 
 ### 2. Music Generation
 
 - Rule based chord progression generator with emotion-based parameters
-- Real-time Ableton Live control via OSC
+- Real-time Ableton Live control via [AbletonOSC](https://github.com/ideoforms/AbletonOSC)
 - Every 16 beats, it generates a new chord progression based on valence and arousal.
 - Continuosly control parameter of ableton tracks based on valence and arousal.
 - TODO: Fix missing chords in progression generation

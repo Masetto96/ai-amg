@@ -2,7 +2,7 @@ import json
 import random
 import os
 from typing import List
-from chord_generator import ChordEvent
+from music_gen.chord_generator import ChordEvent
 
 
 # Get the directory of the current script
