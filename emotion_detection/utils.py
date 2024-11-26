@@ -184,3 +184,21 @@ def get_last_data(data_buffer, newest_samples):
     new_buffer = data_buffer[(data_buffer.shape[0] - newest_samples):, :]
 
     return new_buffer
+
+
+class DynamicScaler:
+    def __init__(self, initial_min=float('inf'), initial_max=float('-inf')):
+        self.min_val = initial_min
+        self.max_val = initial_max
+
+    def update(self, value):
+        """Update the observed range based on the new value."""
+        self.min_val = min(self.min_val, value)
+        self.max_val = max(self.max_val, value)
+
+    def scale(self, value, target_min=-1, target_max=1):
+        """Scale the value to a new range based on the observed range."""
+        if self.max_val == self.min_val:
+            # Prevent division by zero; return midpoint of target range
+            return (target_max + target_min) / 2
+        return ((value - self.min_val) / (self.max_val - self.min_val)) * (target_max - target_min) + target_min

@@ -67,6 +67,9 @@ if __name__ == "__main__":
     controller = AbletonMetaController()
     controller.setup()
 
+    arousal_scaler = utils.DynamicScaler()
+    valence_scaler = utils.DynamicScaler()
+
     # Get the stream info and description
     info = inlet.info()
     description = info.desc()
@@ -138,18 +141,31 @@ if __name__ == "__main__":
             # Simple redout of alpha power, divided by delta waves in order to rule out noise
             alpha_metric = smooth_band_powers[Band.Alpha] / \
                 smooth_band_powers[Band.Delta]
-            print('Alpha Relaxation: ', alpha_metric)
+            # print('Alpha Relaxation: ', alpha_metric)
 
             # Alpha/Theta Protocol:
             # This is another popular neurofeedback metric for stress reduction
             # Higher theta over alpha is supposedly associated with reduced anxiety
-            theta_metric = smooth_band_powers[Band.Theta] / \
+            valence = smooth_band_powers[Band.Theta] / \
                 smooth_band_powers[Band.Alpha]
-            print('Theta Relaxation: ', theta_metric)
 
-            controller.update_metrics(alpha_metric, theta_metric)
+            # Rafa Ramirez Protocol
+            # the beta/alpha ratio is a reasonable indicator of the arousal level
+            arousal = smooth_band_powers[Band.Beta] / \
+                smooth_band_powers[Band.Alpha]
 
+            # watch out, ugly code
+            arousal_scaler.update(arousal)
+            valence_scaler.update(valence)
+            scaled_arousal = arousal_scaler.scale(alpha_metric)
+            scaled_valence = valence_scaler.scale(valence)
+            controller.update_metrics(valence=scaled_valence, arousal=scaled_arousal)
 
+            print('Theta/Alpha (V): ', valence)
+            print('Scaled (V): ', scaled_valence)
+            print('Beta/Alpha:(A)', arousal)
+            print('Scaled (A): ', scaled_arousal)
+            print("-"*80)
             # Beta Protocol:
             # Beta waves have been used as a measure of mental activity and concentration
             # This beta over theta ratio is commonly used as neurofeedback for ADHD

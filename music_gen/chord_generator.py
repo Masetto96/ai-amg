@@ -14,7 +14,7 @@ class ChordProgressionGenerator:
             # Calm and stable, major chords without extensions
             'low_arousal_high_valence': [
                 ['I', 'IV'],           # Simple and stable
-                ['I', 'IVmaj7']           # Adding slight tension with IV7
+                ['I', 'IVmaj7']        # Adding slight tension with IV7
             ],
             
             # Bright, energetic major chords with dynamic extensions
@@ -34,7 +34,6 @@ class ChordProgressionGenerator:
             'high_arousal_low_valence': [
                 ['i', 'VI', 'III7', 'VII'],     # III7 for unexpected brightness
                 ['i', 'VII7', 'VI7', 'V'],      # VII7 adds drama
-                ['i', 'VI7', 'III9', 'vii°7'],  # vii°7 and III9 enhance tension
             ]
         }
 

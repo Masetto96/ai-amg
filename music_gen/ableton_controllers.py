@@ -154,10 +154,10 @@ class AbletonMetaController:
         self.controller.create_midi_clip(0, 0, 16, [])
         self.controller.create_midi_clip(1, 0, 16, [])
 
-    def update_metrics(self, alpha, theta):
+    def update_metrics(self, valence, arousal):
         """Update the alpha and theta metrics dynamically."""
-        self.valence = alpha
-        self.arousal = theta
+        self.valence = valence
+        self.arousal = arousal
         self.modulate_piano(self.valence, self.arousal)
         self.modulate_arpeggiator(self.valence, self.arousal)
 
@@ -183,20 +183,18 @@ class AbletonMetaController:
         self.controller.remove_and_add_notes(
             1, 0, midi_chords
         )  # arpeggiator track 2
-
+        self.controller.remove_and_add_notes(2, 0, midi_chords)  # noise track 3
     def modulate_piano(self, valence: float, arousal: float) -> None:
-        """Modulate piano parameters based on valence and arousal"""
         growl = ((arousal + 1) / 2) * (127 - 1) + 1
         force = ((valence + 1) / 2) * (127 - 1) + 1
         self.controller.device.set_parameter(0, 0, 1, growl)
         self.controller.device.set_parameter(0, 0, 2, force)
 
     def modulate_arpeggiator(self, valence: float, arousal: float) -> None:
-        """Modulate arpeggiator parameters based on valence and arousal"""
-        arp_rate = ((arousal + 1) / 2) * (127 - 1) + 1
-        self.controller.device.set_parameter(1, 0, 6, arp_rate)
-        dry_wet = (valence + 1) / 2
-        self.controller.device.set_parameter(1, 1, 1, dry_wet)
+        arp_rate = ((arousal + 1) / 2) * (10 - 5) + 5 # in the range 5-10
+        self.controller.device.set_parameter(1, 0, 5, arp_rate) # parameter 5 of ableton arpeggiator controlling rate
+        shape = max(0, min((valence + 1) / 2, 1)) # in the range 0-1
+        self.controller.device.set_parameter(1, 1, 4, shape) # parameter 4 of ableton wavetable controlling shapes
 
 
     def _start_beat_listener(self, receive_port: int = 11001):
