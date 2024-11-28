@@ -9,7 +9,7 @@ from pythonosc import udp_client
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import BlockingOSCUDPServer
 from music_gen.chord_generator import ChordProgressionGenerator
-from music_gen.helpers import chord_to_midi, transpose_midi_chords
+from music_gen import helpers
 
 
 class OSCBase:
@@ -19,7 +19,7 @@ class OSCBase:
         self.client = client
 
     def send_message(self, address: str, params: Any) -> None:
-        """Send an OSC message with optional delay to prevent flooding"""
+        """Send an OSC message with optional delay"""
         self.client.send_message(address, params)
         time.sleep(0.01)  # Prevent message flooding
 
@@ -34,6 +34,7 @@ class ClipAPI(OSCBase):
         self.send_message("/live/clip/stop", [track_id, clip_id])
 
     def remove_notes(self, track_id: int, clip_id: int) -> None:
+        # TODO: add the option to remove notes between a time range
         self.send_message("/live/clip/remove/notes", [track_id, clip_id])
 
     def add_notes(
@@ -44,13 +45,13 @@ class ClipAPI(OSCBase):
     ) -> None:
         """
         Add MIDI notes to clip
-
         Args:
             track_id: Track index
             clip_id: Clip index
             notes: List of tuples (pitch, start_time, duration, velocity, mute)
         """
         for note in notes:
+            # TODO: add the option to add notes between a time range
             self.send_message("/live/clip/add/notes", [track_id, clip_id] + list(note))
 
 
@@ -163,46 +164,37 @@ class AbletonMetaController:
         """Handle incoming beat messages"""
         beat_number = args[0]
         print(f"Current beat: {beat_number}")
-        # TODO: implement the following pseudo code
-        # if beat_number == 15:
-        #     generate new progression
-        #     put it into a new clip
-        # if beat_number == 1 or 16?:
-        #     play the new clip # TODO: Find a way to trigger all the clips at the same time, like launch a scene in Ableton
-        if beat_number == 16:
-            # TODO: is it maybe a better idea to generate at the beat 1?
-            # Actually the best would be to generate it in advance, put in the clip and then play it at beat 1 or something?
-            print("Beat 16 reached - generating new progression")
-            # Generates and adds a new progression
-            self.add_progression_to_ableton(self.arousal, self.valence)  
+        if beat_number == 1:
+            self.add_chord_to_ableton(self.arousal, self.valence) # add bar number parameter to decide when in the clip to generate the chord
+        if beat_number == 9:
+            self.add_chord_to_ableton(self.arousal, self.valence)
 
-    def add_progression_to_ableton(self, valence: float, arousal: float) -> None:
-        progression = self.generator.generate_progression(valence, arousal)
-        midi_chords, _ = chord_to_midi(progression)
-        midi_chords = transpose_midi_chords(midi_chords, -12)
+    def add_chord_to_ableton(self, valence: float, arousal: float) -> None:
+        chord_event = self.generator.generate_next_chord(valence, arousal)
+        ableton_notes = helpers.chord_event_to_midi_tuples(chord_event)
         # remove all notes from clip and add new ones
         self.controller.remove_and_add_notes(
-            0, 0, midi_chords
+            0, 0, ableton_notes
         )  # piano track 1, zero index
         self.controller.remove_and_add_notes(
-            1, 0, midi_chords
+            1, 0, ableton_notes
         )  # arpeggiator track 2
-        self.controller.remove_and_add_notes(2, 0, midi_chords)  # noise track 3
+        self.controller.remove_and_add_notes(2, 0, ableton_notes)  # noise track 3
 
     def modulate_piano(self, valence: float, arousal: float) -> None:
-        growl = ((arousal + 1) / 2) * (127 - 1) + 1
-        force = ((valence + 1) / 2) * (127 - 1) + 1
+        growl = arousal * (127 - 1) + 1  # Scale arousal (0-1) to MIDI range (1-127)
+        force = valence * (127 - 1) + 1  # Scale valence (0-1) to MIDI range (1-127)
         self.controller.device.set_parameter(0, 0, 1, growl)
         self.controller.device.set_parameter(0, 0, 2, force)
 
     def modulate_arpeggiator(self, valence: float, arousal: float) -> None:
-        arp_rate = ((arousal + 1) / 2) * (10 - 5) + 5 # in the range 5-10
+        arp_rate = arousal * (10 - 5) + 5  # Scale arousal (0-1) to range 5-10
         self.controller.device.set_parameter(1, 0, 5, arp_rate) # parameter 5 of ableton arpeggiator controlling rate
-        shape = max(0, min((valence + 1) / 2, 1)) # in the range 0-1
+        shape = valence # ableton params is between 0 and 1 and so is valence
         self.controller.device.set_parameter(1, 1, 4, shape) # parameter 4 of ableton wavetable controlling shapes
 
     def modulate_global(self, valence: float, arousal: float) -> None:
-        self.controller.song.set_tempo(120 + (arousal + 1) * 20) # TODO: this calculation is improvised
+        self.controller.song.set_tempo(100 + (arousal - 0.5) * 20)  # BPM oscillates between 90 and 110 based on arousal
         # TODO map global volume
 
     def _start_beat_listener(self, receive_port: int = 11001):
@@ -212,6 +204,8 @@ class AbletonMetaController:
             dispatcher.map("/live/song/get/beat", self._handle_beat)
             server = BlockingOSCUDPServer((ip, port), dispatcher)
             server.serve_forever()
+            print(f"Listening for beats on {ip}:{port}")
+
             # sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             # sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             # server.socket = sock
@@ -230,7 +224,6 @@ class AbletonMetaController:
         self.server_thread.start()
 
         # Start listening for beats
-        print(f"Listening for beats on {ip}:{port}")
         self.controller.song.start_listen_to_beats()
 
         # TODO: add a stop function to stop everything

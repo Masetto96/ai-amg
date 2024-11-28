@@ -184,7 +184,7 @@ def clamp(value, min_val, max_val):
     return max(min_val, min(max_val, value))
 
 class DynamicScaler:
-    def __init__(self, window_size=100, target_range=(-1, 1)):
+    def __init__(self, window_size=100, target_range=(0, 1)):
         """
         Initialize the scaler with a rolling window to track recent values.
         :param window_size: Number of recent values to consider for scaling.
