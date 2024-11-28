@@ -211,7 +211,6 @@ class AbletonMetaController:
             dispatcher = Dispatcher()
             dispatcher.map("/live/song/get/beat", self._handle_beat)
             server = BlockingOSCUDPServer((ip, port), dispatcher)
-            print(f"Listening for beats on {ip}:{port}")
             server.serve_forever()
             # sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             # sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -231,7 +230,7 @@ class AbletonMetaController:
         self.server_thread.start()
 
         # Start listening for beats
-        print("Starting beat listener...")
+        print(f"Listening for beats on {ip}:{port}")
         self.controller.song.start_listen_to_beats()
 
         # TODO: add a stop function to stop everything

@@ -13,11 +13,10 @@ The neurofeedback protocols described here are inspired by
 Adapted from https://github.com/NeuroTechX/bci-workshop
 """
 
-import numpy as np  # Module that simplifies computations on matrices
+import numpy as np
 from pylsl import StreamInlet, resolve_byprop  # Module to receive EEG data
-from emotion_detection import utils  # Our own utility functions
 from music_gen.ableton_controllers import AbletonMetaController
-import matplotlib.pyplot as plt  # Module used for plotting
+from emotion_detection import utils 
 
 
 # Handy little enum to make code more readable
@@ -28,7 +27,6 @@ class Band:
     Beta = 3
 
 # Modify these to change aspects of the signal processing
-
 # Length of the EEG data buffer (in seconds)
 # This buffer will hold last n seconds of data and be used for calculations
 BUFFER_LENGTH = 5
@@ -44,7 +42,7 @@ SHIFT_LENGTH = EPOCH_LENGTH - OVERLAP_LENGTH
 
 # Index of the channel(s) (electrodes) to be used
 # 0 = left ear, 1 = left forehead, 2 = right forehead, 3 = right ear
-INDEX_CHANNEL = [0] 
+INDEX_CHANNEL = [0] # TODO: use all channels
 
 if __name__ == "__main__":
 
@@ -61,6 +59,7 @@ if __name__ == "__main__":
     controller = AbletonMetaController()
     controller.setup()
 
+    # Initialize the scalers
     arousal_scaler = utils.DynamicScaler()
     valence_scaler = utils.DynamicScaler()
 
@@ -72,17 +71,19 @@ if __name__ == "__main__":
     # This is an important value that represents how many EEG data points are
     # collected in a second. This influences our frequency band calculation.
     # for the Muse 2016, this should always be 256
+    # TODO: do logging more beutifully
     fs = int(info.nominal_srate())
     print("EEG Sampling frequency: ", fs, "Hz")
+    print("Data will be collected in a buffer of", BUFFER_LENGTH, "second chunks")
+    print("FFT will be computed on each", EPOCH_LENGTH, "second epoch in the buffer with an overlap of", OVERLAP_LENGTH, "seconds", "\n")
 
     # Initialize raw EEG data buffer
     eeg_buffer = np.zeros((int(fs * BUFFER_LENGTH), 1))
     filter_state = None  # For use with the notch filter
 
     # Wait until the buffer is fully populated
-    print("Start reading your brain waves")
+    print("Reading your brain waves until buffer and scaler are ready, you may close your eyes")
     while np.any(eeg_buffer == 0): # this is to avoide the initial computation based on initial zeros in the buffer
-        print("Reading more of it")
         eeg_data, timestamp = inlet.pull_chunk(timeout=1, max_samples=int(SHIFT_LENGTH * fs))
 
         # Only keep the channel we're interested in
@@ -91,7 +92,6 @@ if __name__ == "__main__":
         # Update EEG buffer with the new data
         eeg_buffer, filter_state = utils.update_buffer(eeg_buffer, ch_data, notch=True, filter_state=filter_state)
 
-    print("Buffer initialized! Starting computations.")
     # Compute the number of epochs in "buffer_length"
     n_win_test = int(np.floor((BUFFER_LENGTH - EPOCH_LENGTH) /
                               SHIFT_LENGTH + 1))
@@ -100,7 +100,6 @@ if __name__ == "__main__":
     # bands will be ordered: [delta, theta, alpha, beta]
     band_buffer = np.zeros((n_win_test, 4))
 
-    print('Press Ctrl-C in the console to break')
     try:
         # The following loop acquires data, computes band powers, and calculates neurofeedback metrics based on those band powers
         while True:
@@ -128,11 +127,6 @@ if __name__ == "__main__":
                         
             smooth_band_powers = np.mean(band_buffer, axis=0) # This helps to smooth out noise
 
-            # Alpha Protocol:
-            # Simple redout of alpha power, divided by delta waves in order to rule out noise
-            alpha_metric = smooth_band_powers[Band.Alpha] / \
-                smooth_band_powers[Band.Delta]
-            # print('Alpha Relaxation: ', alpha_metric)
 
             # Alpha/Theta Protocol:
             # This is another popular neurofeedback metric for stress reduction
@@ -148,16 +142,17 @@ if __name__ == "__main__":
             # watch out, ugly code
             arousal_scaler.update(arousal)
             valence_scaler.update(valence)
-            scaled_arousal = arousal_scaler.scale(alpha_metric)
+
+            if not arousal_scaler.ready and not valence_scaler.ready:
+                continue # wait until there are enough samples to scale properly
+
+            scaled_arousal = arousal_scaler.scale(arousal)
             scaled_valence = valence_scaler.scale(valence)
             controller.update_metrics(valence=scaled_valence, arousal=scaled_arousal)
 
-            print('Theta/Alpha (V): ', valence)
-            # print('Scaled (V): ', scaled_valence)
-            print('Beta/Alpha:(A)', arousal)
-            # print('Scaled (A): ', scaled_arousal)
-            print("-"*80)
-            utils.live_plot(scaled_valence, scaled_arousal)
+
+            utils.live_plot(scaled_valence, scaled_arousal, title='Scaled')
+            utils.live_plot(valence, arousal, title='Non Scaled')
 
             # Beta Protocol:
             # Beta waves have been used as a measure of mental activity and concentration
@@ -166,6 +161,14 @@ if __name__ == "__main__":
             #     smooth_band_powers[Band.Theta]
             # print('Beta Concentration: ', beta_metric)
 
+            # # Alpha Protocol:
+            # # Simple redout of alpha power, divided by delta waves in order to rule out noise
+            # alpha_metric = smooth_band_powers[Band.Alpha] / \
+            #     smooth_band_powers[Band.Delta]
+            # print('Alpha Relaxation: ', alpha_metric)
+            # print("-"*80)
+
 
     except KeyboardInterrupt:
         print('Closing!')
+        # TODO implement shutting off of all the things, like ableton controller server and stuff
