@@ -3,17 +3,14 @@ https://github.com/ideoforms/AbletonOSC
 """
 
 import threading
-import socket
-import sys
 import time
-import random
+from typing import Any, List, Tuple
 from pythonosc import udp_client
-from music_gen.helpers import chord_to_midi, transpose_midi_chords
-
-from music_gen.chord_generator import ChordProgressionGenerator
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import BlockingOSCUDPServer
-from typing import List, Tuple, Optional, Any, Callable
+from music_gen.chord_generator import ChordProgressionGenerator
+from music_gen.helpers import chord_to_midi, transpose_midi_chords
+
 
 class OSCBase:
     """Base class for OSC communication"""
@@ -111,7 +108,7 @@ class DeviceAPI(OSCBase):
 
 class AbletonOSCController:
     """Main controller class that coordinates all APIs"""
-    def __init__(self, send_port: int = 11000, ip: str = "192.168.0.25"):
+    def __init__(self, send_port: int = 11000, ip: str = "192.168.16.70"):
         self.client = udp_client.SimpleUDPClient(ip, send_port)
 
         # Initialize API components
@@ -148,6 +145,7 @@ class AbletonMetaController:
         self.generator = ChordProgressionGenerator()
         self.valence = None
         self.arousal = None
+        self.server_thread = None
 
     def setup(self):
         self._start_beat_listener()
@@ -165,6 +163,12 @@ class AbletonMetaController:
         """Handle incoming beat messages"""
         beat_number = args[0]
         print(f"Current beat: {beat_number}")
+        # TODO: implement the following pseudo code
+        # if beat_number == 15:
+        #     generate new progression
+        #     put it into a new clip
+        # if beat_number == 1 or 16?:
+        #     play the new clip # TODO: Find a way to trigger all the clips at the same time, like launch a scene in Ableton
         if beat_number == 16:
             # TODO: is it maybe a better idea to generate at the beat 1?
             # Actually the best would be to generate it in advance, put in the clip and then play it at beat 1 or something?
@@ -184,6 +188,7 @@ class AbletonMetaController:
             1, 0, midi_chords
         )  # arpeggiator track 2
         self.controller.remove_and_add_notes(2, 0, midi_chords)  # noise track 3
+
     def modulate_piano(self, valence: float, arousal: float) -> None:
         growl = ((arousal + 1) / 2) * (127 - 1) + 1
         force = ((valence + 1) / 2) * (127 - 1) + 1
@@ -196,6 +201,9 @@ class AbletonMetaController:
         shape = max(0, min((valence + 1) / 2, 1)) # in the range 0-1
         self.controller.device.set_parameter(1, 1, 4, shape) # parameter 4 of ableton wavetable controlling shapes
 
+    def modulate_global(self, valence: float, arousal: float) -> None:
+        self.controller.song.set_tempo(120 + (arousal + 1) * 20) # TODO: this calculation is improvised
+        # TODO map global volume
 
     def _start_beat_listener(self, receive_port: int = 11001):
         """Start the OSC server to listen for beats"""
@@ -227,20 +235,6 @@ class AbletonMetaController:
         self.controller.song.start_listen_to_beats()
 
         # TODO: add a stop function to stop everything
-
-
-
-
-
-
-
-
-
-
-
-    # def modulate_drum(self, valence: float, arousal: float) -> None:
-    #     filter_freq = compute_weighted_average(valence, arousal, output_range=(60, 140))
-    #     self.controller.device.set_parameter(3, 0, 5, filter_freq)
 
     # def modulate_bass(self, valence: float, arousal: float) -> None:
     #     drive = compute_weighted_average(

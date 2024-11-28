@@ -8,14 +8,8 @@ epoching, and transforming EEG data into frequency bands
 @author: Cassani
 """
 
-import os
-import sys
-from tempfile import gettempdir
-from subprocess import call
-
 import matplotlib.pyplot as plt
 import numpy as np
-from sklearn import svm
 from scipy.signal import butter, lfilter, lfilter_zi
 
 
@@ -187,18 +181,100 @@ def get_last_data(data_buffer, newest_samples):
 
 
 class DynamicScaler:
-    def __init__(self, initial_min=float('inf'), initial_max=float('-inf')):
-        self.min_val = initial_min
-        self.max_val = initial_max
+    def __init__(self, window_size=25):
+        """
+        Initialize the scaler with a rolling window to track recent values.
+        :param window_size: Number of recent values to consider for scaling.
+        """
+        self.window_size = window_size
+        self.values = []  # List to store the rolling window of values.
 
     def update(self, value):
-        """Update the observed range based on the new value."""
-        self.min_val = min(self.min_val, value)
-        self.max_val = max(self.max_val, value)
+        """
+        Update the rolling window with a new value.
+        :param value: The latest metric to be added to the window.
+        """
+        self.values.append(value)
+        if len(self.values) > self.window_size:
+            self.values.pop(0)  # Remove oldest value to maintain window size.
 
-    def scale(self, value, target_min=-1, target_max=1):
-        """Scale the value to a new range based on the observed range."""
-        if self.max_val == self.min_val:
-            # Prevent division by zero; return midpoint of target range
-            return (target_max + target_min) / 2
-        return ((value - self.min_val) / (self.max_val - self.min_val)) * (target_max - target_min) + target_min
+    def scale(self, value, target_range=(-1, 1)):
+        """
+        Scale a value based on the current min and max of the rolling window.
+        :param value: The value to scale.
+        :param target_range: The range to scale the value into.
+        :return: Scaled value.
+        """
+        if not self.values:
+            # If no values yet, default to the minimum of the target range.
+            return target_range[0]
+
+        min_val = min(self.values)
+        max_val = max(self.values)
+
+        if max_val == min_val:
+            # Avoid division by zero if all values are identical.
+            return target_range[0]
+
+        # Linear scaling formula:
+        scaled_value = (value - min_val) / (max_val - min_val)
+        return round(target_range[0] + scaled_value * (target_range[1] - target_range[0]), 1)
+
+def live_plot(valence, arousal, history=100):
+    """
+    Real-time visualization of valence and arousal.
+
+    Args:
+        valence (list or np.ndarray): List or array of valence values.
+        arousal (list or np.ndarray): List or array of arousal values.
+        history (int): Number of recent points to show on the plot.
+    """
+    plt.ion()  # Turn on interactive mode
+    fig, ax = plt.subplots(2, 1, figsize=(10, 6))
+    valence_plot, = ax[0].plot([], [], label='Valence', color='blue')
+    arousal_plot, = ax[1].plot([], [], label='Arousal', color='red')
+
+    # Set up the axes
+    ax[0].set_xlim(0, history)
+    ax[0].set_ylim(-1, 1)  # Adjust as needed
+    ax[0].set_title("Real-Time Valence")
+    ax[0].set_xlabel("Time")
+    ax[0].set_ylabel("Valence")
+    ax[0].legend()
+
+    ax[1].set_xlim(0, history)
+    ax[1].set_ylim(-1, 1)  # Adjust as needed
+    ax[1].set_title("Real-Time Arousal")
+    ax[1].set_xlabel("Time")
+    ax[1].set_ylabel("Arousal")
+    ax[1].legend()
+
+    # For storing history
+    valence_data = []
+    arousal_data = []
+
+    while True:
+        # Update the data
+        valence_data.append(valence())
+        arousal_data.append(arousal())
+
+        # Maintain the history limit
+        if len(valence_data) > history:
+            valence_data.pop(0)
+        if len(arousal_data) > history:
+            arousal_data.pop(0)
+
+        # Update plots
+        valence_plot.set_data(range(len(valence_data)), valence_data)
+        arousal_plot.set_data(range(len(arousal_data)), arousal_data)
+
+        # Redraw
+        for axis in ax:
+            axis.relim()
+            axis.autoscale_view()
+
+        plt.pause(0.01)  # Pause to update the plot
+
+    plt.ioff()
+    plt.show()
+

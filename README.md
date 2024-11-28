@@ -40,27 +40,28 @@ pip install -r requirements.txt
 ```
 
 ## Usage
-Connect MUSE headset:
+Start music neuro feedback
 ```bash
-# List available devices
-muselsl list
-
-# Start streaming
-muselsl stream --address <address>
+chmod +x start_music_nf.sh
+./start_muse_stream.sh
 ```
 
 ## Troubleshooting
-
 For real-time Essentia predictions debugging, refer to [this tutorial](https://essentia.upf.edu/tutorial_tensorflow_real-time_auto-tagging.html)
 
 ## Future Development (TODOs:)
-- Improve the way clips are created and launched 
-- Figure out the appropriate scaling for neuro metrics
+### Emotion Detection
+- Compute neuro metrics corresponding to valence, that is the brain activity asymmetry. Needs all the channels.
+- Visualize valence and arousal coming from EEG
+- Find alternatives to extract valence and arousal from EEG (for later)
+
+### Music Generation
+- Improve the way clips are created and launched
+    - Listen for beats, when approaching the end create a new clip, launch it when a new loop is starting 
 - Improve chord progression:
     - Use suspended chords for neutral valence 
-- Compute neuro metrics corresponding to valence, that is the brain activity asymmetry
 - Refine and improve sonification:
     - Cherry pick best instruments from Ableton
-- Add function to modulate more parameters:
-    - global params like tempo
-    - volume of individual tracks
+
+### Evaluation    
+- Implement evaluation with essentia models
