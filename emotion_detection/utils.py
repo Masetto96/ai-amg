@@ -55,6 +55,7 @@ def epoch(data, samples_epoch, samples_overlap=0):
 
 
 def compute_band_powers(eegdata, fs):
+    #  TODO: refactor this function
     """Extract the features (band powers) from the EEG.
 
     Args:
@@ -111,74 +112,38 @@ def nextpow2(i):
         n *= 2
     return n
 
-
-def compute_feature_matrix(epochs, fs):
-    """
-    Call compute_feature_vector for each EEG epoch
-    """
-    n_epochs = epochs.shape[2]
-
-    for i_epoch in range(n_epochs):
-        if i_epoch == 0:
-            feat = compute_band_powers(epochs[:, :, i_epoch], fs).T
-            # Initialize feature_matrix
-            feature_matrix = np.zeros((n_epochs, feat.shape[0]))
-
-        feature_matrix[i_epoch, :] = compute_band_powers(
-            epochs[:, :, i_epoch], fs).T
-
-    return feature_matrix
-
-
-def get_feature_names(ch_names):
-    """Generate the name of the features.
-
-    Args:
-        ch_names (list): electrode names
-
-    Returns:
-        (list): feature names
-    """
-    bands = ['delta', 'theta', 'alpha', 'beta']
-
-    feat_names = []
-    for band in bands:
-        for ch in range(len(ch_names)):
-            feat_names.append(band + '-' + ch_names[ch])
-
-    return feat_names
-
-
 def update_buffer(data_buffer, new_data, notch=False, filter_state=None):
     """
-    Concatenates "new_data" into "data_buffer", and returns an array with
-    the same size as "data_buffer"
-    """
-    if new_data.ndim == 1:
-        new_data = new_data.reshape(-1, data_buffer.shape[1])
+    Concatenates "new_data" into "data_buffer", applies optional notch filtering,
+    and returns an updated buffer of the same size as `data_buffer`.
 
+    Parameters:
+    - data_buffer: Existing buffer of shape (buffer_size, channels).
+    - new_data: Incoming data of shape (samples, channels) or (samples,).
+    - notch: Boolean, whether to apply a notch filter.
+    - filter_state: State for the notch filter.
+
+    Returns:
+    - new_buffer: Updated buffer of the same shape as `data_buffer`.
+    - filter_state: Updated filter state.
+    """
+    # Apply notch filter if requested
     if notch:
         if filter_state is None:
-            filter_state = np.tile(lfilter_zi(NOTCH_B, NOTCH_A),
-                                   (data_buffer.shape[1], 1)).T
-        new_data, filter_state = lfilter(NOTCH_B, NOTCH_A, new_data, axis=0,
-                                         zi=filter_state)
+            # Initialize filter state for each channel
+            filter_state = np.array([lfilter_zi(NOTCH_B, NOTCH_A) for _ in range(data_buffer.shape[1])]).T
 
+        # Apply filter independently to each channel
+        new_data, filter_state = lfilter(NOTCH_B, NOTCH_A, new_data, axis=0, zi=filter_state)
+
+    # Concatenate along time axis and trim to buffer size
     new_buffer = np.concatenate((data_buffer, new_data), axis=0)
-    new_buffer = new_buffer[new_data.shape[0]:, :]
+    new_buffer = new_buffer[-data_buffer.shape[0]:, :]  # Keep only the most recent data
 
     return new_buffer, filter_state
 
-
-def get_last_data(data_buffer, newest_samples):
-    """
-    Obtains from "buffer_array" the "newest samples" (N rows from the
-    bottom of the buffer)
-    """
-    new_buffer = data_buffer[(data_buffer.shape[0] - newest_samples):, :]
-
-    return new_buffer
-
+def get_last_epoch(buffer_array, num_samples):
+    return buffer_array[-num_samples:, :]
 
 def clamp(value, min_val, max_val):
     return max(min_val, min(max_val, value))

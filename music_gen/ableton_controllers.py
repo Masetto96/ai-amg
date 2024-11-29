@@ -33,26 +33,27 @@ class ClipAPI(OSCBase):
     def stop_clip(self, track_id: int, clip_id: int) -> None:
         self.send_message("/live/clip/stop", [track_id, clip_id])
 
-    def remove_notes(self, track_id: int, clip_id: int) -> None:
-        # TODO: add the option to remove notes between a time range
+    def remove_notes(self, track_id: int, clip_id: int, bar_number:int) -> None:
+        # TODO: add the option to remove notes between a time range given bar number param
         self.send_message("/live/clip/remove/notes", [track_id, clip_id])
 
-    def add_notes(
-        self,
-        track_id: int,
-        clip_id: int,
-        notes: List[Tuple[int, float, float, int, int]],
-    ) -> None:
-        """
-        Add MIDI notes to clip
-        Args:
-            track_id: Track index
-            clip_id: Clip index
-            notes: List of tuples (pitch, start_time, duration, velocity, mute)
-        """
-        for note in notes:
-            # TODO: add the option to add notes between a time range
-            self.send_message("/live/clip/add/notes", [track_id, clip_id] + list(note))
+    # def add_notes(
+    #     self,
+    #     track_id: int,
+    #     clip_id: int,
+    #     notes: List[Tuple[int, float, float, int, int]],
+    #     bar_number:int
+    # ) -> None:
+    #     """
+    #     Add MIDI notes to clip
+    #     Args:
+    #         track_id: Track index
+    #         clip_id: Clip index
+    #         notes: List of tuples (pitch, start_time, duration, velocity, mute)
+    #     """
+    #     for note in notes:
+    #         # TODO: add the option to add notes between a time range given bar number param
+    #         self.send_message("/live/clip/add/notes", [track_id, clip_id] + list(note))
 
 
 class ClipSlotAPI(OSCBase):
@@ -127,20 +128,18 @@ class AbletonOSCController:
     ) -> None:
         """Create a MIDI clip and add notes to it"""
         self.clip_slot.create_clip(track_index, clip_index, length_in_bars)
-        self.clip.add_notes(track_index, clip_index, midi_notes)
+        # self.clip.add_notes(track_index, clip_index, midi_notes)
 
-    def remove_and_add_notes(
-        self, track_index: int, clip_index: int, midi_notes: List[Tuple]
-    ):
-        self.clip.remove_notes(track_index, clip_index)
-        self.clip.add_notes(track_index, clip_index, midi_notes)
+    # def remove_and_add_notes(
+    #     self, track_index: int, clip_index: int, midi_notes: List[Tuple], bar_number:int):
+    #     self.clip.remove_notes(track_index, clip_index, bar_number)
+    #     self.clip.add_notes(track_index, clip_index, midi_notes, bar_number)
 
 
 class AbletonMetaController:
     """
     Piano is on track 1, zero index; Arpeggiator is on track 2; Bass is on track 3
     """
-
     def __init__(self):
         self.controller = AbletonOSCController()
         self.generator = ChordProgressionGenerator()
@@ -159,27 +158,28 @@ class AbletonMetaController:
         self.arousal = arousal
         self.modulate_piano(self.valence, self.arousal)
         self.modulate_arpeggiator(self.valence, self.arousal)
+        self.modulate_global(self.valence, self.arousal)
 
-    def _handle_beat(self, address: str, *args) -> None:
+    def _handle_beat(self, *args) -> None:
         """Handle incoming beat messages"""
         beat_number = args[0]
         print(f"Current beat: {beat_number}")
-        if beat_number == 1:
-            self.add_chord_to_ableton(self.arousal, self.valence) # add bar number parameter to decide when in the clip to generate the chord
-        if beat_number == 9:
-            self.add_chord_to_ableton(self.arousal, self.valence)
+        # if beat_number == 1:
+        #     self.add_chord_to_ableton(self.arousal, self.valence, bar_number=8) # add bar number parameter to decide when in the clip to generate the chord
+        # if beat_number == 9:
+        #     self.add_chord_to_ableton(self.arousal, self.valence, bar_number=1)
 
-    def add_chord_to_ableton(self, valence: float, arousal: float) -> None:
-        chord_event = self.generator.generate_next_chord(valence, arousal)
-        ableton_notes = helpers.chord_event_to_midi_tuples(chord_event)
-        # remove all notes from clip and add new ones
-        self.controller.remove_and_add_notes(
-            0, 0, ableton_notes
-        )  # piano track 1, zero index
-        self.controller.remove_and_add_notes(
-            1, 0, ableton_notes
-        )  # arpeggiator track 2
-        self.controller.remove_and_add_notes(2, 0, ableton_notes)  # noise track 3
+    # def add_chord_to_ableton(self, valence: float, arousal: float, bar_number:int) -> None:
+    #     # TODO: use bar number to remove and add notes in the right time range, that is when the other chord is playing
+    #     chord_event, root_midi_note = self.generator.generate_next_chord(valence, arousal)
+    #     ableton_notes = helpers.chord_event_to_midi_tuples(chord_event)
+    #     # remove all notes from clip and add new ones
+    #     self.controller.remove_and_add_notes(
+    #         0, 0, ableton_notes, bar_number
+    #     )  # piano track 1, zero index
+    #     self.controller.remove_and_add_notes(
+    #         1, 0, ableton_notes, bar_number,
+    #     )  # arpeggiator track 2
 
     def modulate_piano(self, valence: float, arousal: float) -> None:
         growl = arousal * (127 - 1) + 1  # Scale arousal (0-1) to MIDI range (1-127)

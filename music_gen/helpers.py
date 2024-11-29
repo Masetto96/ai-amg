@@ -1,20 +1,5 @@
-import json
-import random
-import os
 from typing import List
 from music_gen.chord_generator import ChordEvent
-
-
-# # Get the directory of the current script
-# script_dir = os.path.dirname(os.path.abspath(__file__))
-
-# # Construct the absolute path to the JSON file
-# mapping_path = os.path.join(script_dir, "chord_mapping.json")
-
-# # Load JSON data from the file
-# with open(mapping_path, "r") as file:
-#     CHORD_MAPPING = json.load(file)
-
 
 def chord_event_to_midi_tuples(chord_event:ChordEvent, start_time=0.0, mute=0):
     """

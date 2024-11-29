@@ -51,16 +51,17 @@ For real-time Essentia predictions debugging, refer to [this tutorial](https://e
 
 ## Future Development (TODOs:)
 ### Emotion Detection
-- Compute neuro metrics corresponding to valence, that is the brain activity asymmetry. Needs all the channels that is all the electrodes.
-- Find alternatives to extract valence and arousal from EEG (*for later*)
+- Compute neuro metrics corresponding to valence, that is the brain activity asymmetry.
 
 ### Music Generation
 - Improve the way clips are created and launched
     - Listen for beats, when approaching the end create a new clip, launch it when a new loop is starting 
-- Improve chord progression:
-    - Use suspended chords for neutral valence 
 - Refine and improve sonification:
     - Cherry pick best instruments from Ableton
 
 ### Evaluation    
 - Implement evaluation with essentia models
+
+## Ideas
+- Find alternatives to extract valence and arousal from EEG (*for later*)
+- Use suspended chords for neutral valence 

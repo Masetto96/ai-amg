@@ -1,0 +1,7 @@
+Mode, I, II, III, IV, V, VI, VII
+Ionian, Imaj7, iim7, iiim7, IVmaj7, V7, vim7, viim7♭5
+Dorian, im7, iim7, ♭IIImaj7, IV7, vm7, vim7♭5, ♭VIImaj7
+Phrygian, im7, ♭IImaj7, ♭III7, ivm7, vm7♭5, ♭VImaj7, ♭viim7
+Lydian, Imaj7, II7, iiim7, ivm7♭5, Vmaj7, vim7, viim7
+Mixolydian, I7, iim7, iiim7♭5, IVmaj7, vm7, vim7, ♭VIImaj7
+Aeolian, im7, iim7♭5, ♭IIImaj7, ivm7, vm7, ♭VImaj7, ♭VII7

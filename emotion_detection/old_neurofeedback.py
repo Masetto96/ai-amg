@@ -127,7 +127,6 @@ if __name__ == "__main__":
                         
             smooth_band_powers = np.mean(band_buffer, axis=0) # This helps to smooth out noise
 
-
             # Alpha/Theta Protocol:
             # This is another popular neurofeedback metric for stress reduction
             # Higher theta over alpha is supposedly associated with reduced anxiety
