@@ -106,7 +106,7 @@ if __name__ == "__main__":
 
             valence = aggregated_theta / aggregated_alpha # anxiety protocol
             arousal = aggregated_beta / aggregated_alpha # rafa ramirez protocol
-            # TODO: clamp the raw metrics to a range
+            # TODO: clamp the raw metrics to a wide range
             arousal_scaler.update(arousal)
             valence_scaler.update(valence)
 

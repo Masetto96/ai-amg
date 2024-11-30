@@ -1,49 +1,75 @@
 import random
 import json
-from typing import List
 from dataclasses import dataclass
+import numpy as np
+from typing import List
 
 @dataclass
 class ChordEvent:
-    notes: List[int] # MIDI notes
-    # TODO: add mode and tonal midi note
-    duration: int # Duration in beats (assuming 4/4 time)
-    velocity: float # MIDI velocity (0-1)
+    # TODO: add mode name
+    notes: np.array # MIDI notes of the chord
+    root: int # MIDI note of the root
+    velocity: float # MIDI velocity (0-127)
+    duration: int = 8 # Duration in beats (assuming 4/4 time)
+
+    def to_ableton_osc(self, start_time: int) -> list:
+        """
+        Convert the chord event to a MIDI list for Ableton OSC.
+        Each note is (midi_note, start_time (in beats), duration, velocity, mute)
+        Adds all the notes in a list to be sent to Ableton.
+        """
+        return [item for note in self.notes for item in (int(note), start_time, self.duration, self.velocity, 0)]
+
 
 class ChordProgressionGenerator:
     def __init__(self):
         self.mode_intervals = self._load_mode_intervals()
         self.circle = CircleOfFifthsFourths()
         self.current_chord = "C"
+        self.index_to_mode = [
+            "lydian",
+            "ionian",
+            "mixolydian",
+            "dorian",
+            "aeolian",
+            "phrygian",
+            "locrian"
+        ]
 
     def _load_mode_intervals(self):
         with open('music_gen/mode_intervals.json', 'r') as file:
             return json.load(file)
 
     def generate_next_chord(self, valence, arousal) -> str:
-        steps = max(0, min(3, int(arousal * 3))) # TODO: review this
-        direction = random.choice(['fifths', 'fourths'])
-        self.current_chord, tonal_midi_note = self.circle.navigate_circle(self.current_chord, steps, direction)
-        mode, chord_notes = self._get_chord_mode(valence)
-        print(f"Mode: {mode}, tonal center: {self.current_chord}")
+        """Generate the next chord based on the valence and arousal"""
+        # uncommented for testing the modality
+        # steps = max(0, min(3, int(arousal * 3))) # TODO: review this
+        # direction = random.choice(['fifths', 'fourths'])
+        # self.current_chord, tonal_midi_note = self.circle.navigate_circle(self.current_chord, steps, direction)
+        self.current_chord, tonal_midi_note = "C", 60
+        mode_intervals = self._get_mode(valence)
+        print(f"Mode intervals: {mode_intervals}, tonal center: {self.current_chord}")
         velocity = self._compute_velocity(arousal)
         pitch = self._compute_pitch(valence)
-        chord_event = self._construct_chord(tonal_midi_note, chord_notes, velocity, pitch)
-        return chord_event, tonal_midi_note
+        chord_event = self._construct_chord(int(tonal_midi_note), mode_intervals, velocity, pitch)
+        return chord_event
 
-    def _construct_chord(self, tonal_midi, chord_indexes, velocity, pitch:int):
-        chord_midi_notes = [tonal_midi + note for note in chord_indexes]
-        return ChordEvent(notes=chord_midi_notes+pitch, duration=8, velocity=velocity) # TODO where is voice leading? :(
+    def _construct_chord(self, tonal_midi:int, mode_intervals, velocity, pitch_shift:int):
+        idx_intervals = [0, 2, 4, 6]
+        # get the 1st, 3rd, 5th, 7th degrees from the mode intervals to create the chord
+        chord_notes = mode_intervals[idx_intervals]
+        # turn that to midi notes by adding midi tonal center (e.g. C = 60) and adding pitch shift amount in semitones
+        chord_midi_notes = chord_notes + tonal_midi + pitch_shift
+        return ChordEvent(notes=chord_midi_notes, duration=8, velocity=velocity, root=tonal_midi) # TODO where is voice leading? :(
           
-    def _get_chord_mode(self, valence):
+    def _get_mode(self, valence):
+        """Return the mode intervals based on the valence"""
         # Determine the mode index based on valence
         mode_idx = int(7 - (6 * valence)) - 1 # minus 1 to convert to 0-based index
-        mode = self.mode_intervals[mode_idx]  # Get the mode intervals
-        # Get the indexes for the chord notes
-        indexes = [0, 2, 4, 6]  # 1st, 3rd, 5th, 7th degrees of the mode
-        # Select the chord notes using the specified indexes
-        chord_notes = [mode[i] for i in indexes]
-        return mode, chord_notes
+        mode_name = self.index_to_mode[mode_idx]
+        print(f"Current mode: {mode_name}")
+        mode_intervals = self.mode_intervals[mode_name]  # Get the mode intervals
+        return np.array(mode_intervals)
 
     def _compute_pitch(self, valence) -> int:
         return 12 if valence > 0.75 else -12 if valence < 0.35 else 0
@@ -81,14 +107,6 @@ class CircleOfFifthsFourths:
         return self.note_to_midi[note]
     
     def navigate_circle(self, start_note, steps:int, direction='fifths'):
-        """
-        Navigate around the circle of fifths or fourths.
-        
-        :param start_note: Starting note on the circle
-        :param steps: Number of steps to move (can be float)
-        :param direction: 'fifths' (clockwise) or 'fourths' (counterclockwise)
-        :return: Destination note as midi pitch and note name (e.g. 60 is 'C')
-        """
         # Select the appropriate circle based on direction
         current_circle = self.fifth_order if direction == 'fifths' else self.fourth_order
         
@@ -102,4 +120,4 @@ class CircleOfFifthsFourths:
         # Use modulo to wrap around the circle
         dest_index = int(round((start_index + steps) % len(current_circle)))
         
-        return self._to_midi_pitch(current_circle[dest_index]), current_circle[dest_index]
+        return current_circle[dest_index], self._to_midi_pitch(current_circle[dest_index])

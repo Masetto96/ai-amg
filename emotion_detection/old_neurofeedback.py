@@ -117,7 +117,7 @@ if __name__ == "__main__":
                 filter_state=filter_state)
 
             # Get newest samples from the buffer
-            data_epoch = utils.get_last_data(eeg_buffer,
+            data_epoch = utils.get_last_epoch(eeg_buffer,
                                              EPOCH_LENGTH * fs)
 
             # Compute band powers

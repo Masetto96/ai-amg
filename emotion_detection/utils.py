@@ -15,7 +15,6 @@ from collections import deque
 
 NOTCH_B, NOTCH_A = butter(4, np.array([55, 65]) / (256 / 2), btype='bandstop')
 
-
 def epoch(data, samples_epoch, samples_overlap=0):
     """Extract epochs from a time series.
 
@@ -101,7 +100,6 @@ def compute_band_powers(eegdata, fs):
     feature_vector = np.log10(feature_vector)
 
     return feature_vector
-
 
 def nextpow2(i):
     """
@@ -198,7 +196,7 @@ class DynamicScaler:
         # Scale to target range
         scaled_result = self.target_range[0] + scaled_value * (self.target_range[1] - self.target_range[0])
         
-        clamped_result = max(self.target_range[0], min(scaled_result, self.target_range[1]))
+        clamped_result = clamp(scaled_result, min_val=self.target_range[0], max_val=self.target_range[1])
         
         return round(clamped_result, 2)
 
@@ -241,7 +239,6 @@ def live_plot(valence, arousal, title:str="", max_points:int=100):
             "arousal_text": arousal_text,
         }
 
-    
     # Update the stored data for this plot
     plot = live_plot.plots[title]
     plot["valence_data"].append(valence)

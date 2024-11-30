@@ -1,24 +1,23 @@
 from typing import List
 from music_gen.chord_generator import ChordEvent
 
-def chord_event_to_midi_tuples(chord_event:ChordEvent, start_time=0.0, mute=0):
-    """
-    Converts a ChordEvent into a list of MIDI note tuples.
+# def chord_event_to_midi(chord_event: ChordEvent, start_time=0.0, mute=0):
+#     """
+#     Converts a ChordEvent into a flattened list of MIDI note attributes.
     
-    Parameters:
-        chord_event (ChordEvent): The chord event to convert.
-        start_time (float): The start time of the chord in beats.
-        mute (bool): Whether the notes should be muted.
+#     Parameters:
+#         chord_event (ChordEvent): The chord event to convert.
+#         start_time (float): The start time of the chord in beats.
+#         mute (bool): Whether the notes should be muted.
     
-    Returns:
-        list: A list of tuples representing MIDI notes in the format:
-              (pitch, start_time, duration, velocity, mute)
-    """
-    midi_tuples = [
-        (note, start_time, chord_event.duration, chord_event.velocity, mute)
-        for note in chord_event.notes
-    ]
-    return midi_tuples
+#     Returns:
+#         list: A flattened list of MIDI note attributes in the format:
+#               [pitch, start_time, duration, velocity, mute, ...]
+#     """
+#     midi_list = []
+#     for note in chord_event.notes:
+#         midi_list.extend([int(note), start_time, chord_event.duration, chord_event.velocity, mute])
+#     return midi_list
 
 
 # def chord_to_midi(chord_events: List[ChordEvent], include_third=True):

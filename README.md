@@ -54,8 +54,6 @@ For real-time Essentia predictions debugging, refer to [this tutorial](https://e
 - Compute neuro metrics corresponding to valence, that is the brain activity asymmetry.
 
 ### Music Generation
-- Improve the way clips are created and launched
-    - Listen for beats, when approaching the end create a new clip, launch it when a new loop is starting 
 - Refine and improve sonification:
     - Cherry pick best instruments from Ableton
 
@@ -65,3 +63,4 @@ For real-time Essentia predictions debugging, refer to [this tutorial](https://e
 ## Ideas
 - Find alternatives to extract valence and arousal from EEG (*for later*)
 - Use suspended chords for neutral valence 
+- Experiment with launching clips rather than deleting notes and adding new one
