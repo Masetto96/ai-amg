@@ -1,7 +1,7 @@
 import numpy as np
 from pylsl import StreamInlet, resolve_byprop
 from music_gen.ableton_controllers import AbletonMetaController
-from emotion_detection import utils 
+from emotion_detection import utils
 
 class Band:
     Delta = 0
@@ -13,15 +13,15 @@ class Band:
 BUFFER_LENGTH = 5
 
 # Length of the epochs used to compute the FFT (in seconds)
-EPOCH_LENGTH = 1
+EPOCH_LENGTH = 2
 
 # Amount of overlap between two consecutive epochs (in seconds)
-OVERLAP_LENGTH = 0.8
+OVERLAP_LENGTH = 1.5
 
 # Amount to 'shift' the start of each next consecutive epoch
 SHIFT_LENGTH = EPOCH_LENGTH - OVERLAP_LENGTH
 
-BAND_BUFFER_LENGTH = 10
+BAND_BUFFER_LENGTH = 20
 
 # All the 4 electrodes
 INDEX_CHANNEL = [0, 1, 2, 3]
@@ -57,23 +57,12 @@ if __name__ == "__main__":
     print("FFT will be computed on each", EPOCH_LENGTH, "second epoch in the buffer with an overlap of", OVERLAP_LENGTH, "seconds", "\n")
 
     # Initialize buffers for all channels
-    eeg_buffer = np.zeros((int(fs * BUFFER_LENGTH), len(INDEX_CHANNEL))) # shape [samples, channels]
+    eeg_buffer, filter_state = utils.initialize_buffer(fs, BUFFER_LENGTH, INDEX_CHANNEL)
 
-    filter_state = None
     # Wait until the buffer is fully populated
     print("Reading your brain waves until buffer and scalers are ready.")
-    while np.any(eeg_buffer == 0):
-        eeg_data, _ = inlet.pull_chunk(timeout=1, max_samples=int(SHIFT_LENGTH * fs))
-        ch_data = np.array(eeg_data)[:, INDEX_CHANNEL]  # Ensure it matches the buffer dimensions
-        eeg_buffer, filter_state = utils.update_buffer(
-            eeg_buffer, ch_data, notch=True, filter_state=filter_state
-        )
-    
-    # # Compute the number of epochs in the buffer length
-    # n_win_test = int(np.floor((BUFFER_LENGTH - EPOCH_LENGTH) / SHIFT_LENGTH + 1))
-    # # bands will be ordered: [delta, theta, alpha, beta]
-    # # Initialize the band power buffer for all channels
-    # band_buffer = np.zeros((n_win_test, 4, len(INDEX_CHANNEL)))  # Shape: (n_win_test, bands, channels)
+    eeg_buffer, filter_state = utils.populate_initial_buffer(inlet, eeg_buffer, filter_state, SHIFT_LENGTH, fs, INDEX_CHANNEL)
+
     band_buffer = np.zeros((BAND_BUFFER_LENGTH, 4, len(INDEX_CHANNEL)))
     try:
         while True:
@@ -100,6 +89,7 @@ if __name__ == "__main__":
             smooth_band_powers = np.mean(band_buffer, axis=0)  # Shape: (bands, channels)
 
             # TODO: is this correct?
+            # aggregate across channels
             aggregated_alpha = np.mean(smooth_band_powers[Band.Alpha])
             aggregated_beta = np.mean(smooth_band_powers[Band.Beta])
             aggregated_theta = np.mean(smooth_band_powers[Band.Theta])
@@ -121,4 +111,5 @@ if __name__ == "__main__":
             utils.live_plot(valence, arousal, title="Not Scaled")
 
     except KeyboardInterrupt:
+        # TODO: close all the stuff
         print("Closing!")

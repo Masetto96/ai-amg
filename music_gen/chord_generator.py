@@ -6,6 +6,7 @@ from typing import List
 
 @dataclass
 class ChordEvent:
+    """Represents a chord"""
     # TODO: add mode name
     notes: np.array # MIDI notes of the chord
     root: int # MIDI note of the root
@@ -21,7 +22,7 @@ class ChordEvent:
         return [item for note in self.notes for item in (int(note), start_time, self.duration, self.velocity, 0)]
 
 
-class ChordProgressionGenerator:
+class ChordGenerator:
     def __init__(self):
         self.mode_intervals = self._load_mode_intervals()
         self.circle = CircleOfFifthsFourths()
@@ -42,13 +43,11 @@ class ChordProgressionGenerator:
 
     def generate_next_chord(self, valence, arousal) -> str:
         """Generate the next chord based on the valence and arousal"""
-        # uncommented for testing the modality
-        # steps = max(0, min(3, int(arousal * 3))) # TODO: review this
-        # direction = random.choice(['fifths', 'fourths'])
-        # self.current_chord, tonal_midi_note = self.circle.navigate_circle(self.current_chord, steps, direction)
-        self.current_chord, tonal_midi_note = "C", 60
+        steps = 0 if random.random() < (1 - arousal) else random.choice([1, 2, 3])
+        direction = random.choice(['fifths', 'fourths'])
+        self.current_chord, tonal_midi_note = self.circle.navigate_circle(self.current_chord, steps, direction)
         mode_intervals = self._get_mode(valence)
-        print(f"Mode intervals: {mode_intervals}, tonal center: {self.current_chord}")
+        print(f"Mode intervals: {mode_intervals}, tonal center: {self.current_chord} \n")
         velocity = self._compute_velocity(arousal)
         pitch = self._compute_pitch(valence)
         chord_event = self._construct_chord(int(tonal_midi_note), mode_intervals, velocity, pitch)
@@ -63,7 +62,6 @@ class ChordProgressionGenerator:
         return ChordEvent(notes=chord_midi_notes, duration=8, velocity=velocity, root=tonal_midi) # TODO where is voice leading? :(
           
     def _get_mode(self, valence):
-        """Return the mode intervals based on the valence"""
         # Determine the mode index based on valence
         mode_idx = int(7 - (6 * valence)) - 1 # minus 1 to convert to 0-based index
         mode_name = self.index_to_mode[mode_idx]
@@ -72,7 +70,7 @@ class ChordProgressionGenerator:
         return np.array(mode_intervals)
 
     def _compute_pitch(self, valence) -> int:
-        return 12 if valence > 0.75 else -12 if valence < 0.35 else 0
+        return 12 if valence > 0.80 else -12 if valence < 0.20 else 0
 
     def _compute_velocity(self, arousal: float) -> int:
         v = random.uniform(50, 40 * arousal + 60)
@@ -92,32 +90,30 @@ class CircleOfFifthsFourths:
         'D♯/E♭': 63,
         'E': 64,
         'F': 65,
-        'F♯/G♭': 66,
-        'G': 67,
-        'G♯/A♭': 68,
-        'A': 69,
-        'A♯/B♭': 70,
-        'B': 71
+        'F♯/G♭': 54,
+        'G': 55,
+        'G♯/A♭': 56,
+        'A': 57,
+        'A♯/B♭': 58,
+        'B': 59
     }
-        
+              
         # Circle of fourths (counterclockwise) - reverse of fifths
         self.fourth_order = self.fifth_order[::-1]
-    
+   
     def _to_midi_pitch(self, note:str) -> int:
         return self.note_to_midi[note]
-    
+   
     def navigate_circle(self, start_note, steps:int, direction='fifths'):
+        """Returns next notal center and its MIDI pitch based on the start note and steps"""
         # Select the appropriate circle based on direction
-        current_circle = self.fifth_order if direction == 'fifths' else self.fourth_order
-        
+        current_circle = self.fifth_order if direction == 'fifths' else self.fourth_order      
         # Find the index of the start note
         try:
             start_index = current_circle.index(start_note)
         except ValueError:
-            raise ValueError(f"Note {start_note} not found in the circle")
-        
+            raise ValueError(f"Note {start_note} not found in the circle")       
         # Calculate the destination index
         # Use modulo to wrap around the circle
-        dest_index = int(round((start_index + steps) % len(current_circle)))
-        
+        dest_index = int(round((start_index + steps) % len(current_circle)))    
         return current_circle[dest_index], self._to_midi_pitch(current_circle[dest_index])

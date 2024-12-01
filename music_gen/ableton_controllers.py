@@ -8,7 +8,7 @@ from typing import Any, List, Tuple
 from pythonosc import udp_client
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import BlockingOSCUDPServer
-from music_gen.chord_generator import ChordProgressionGenerator
+from music_gen.chord_generator import ChordGenerator
 # from music_gen import helpers
 
 
@@ -34,7 +34,7 @@ class ClipAPI(OSCBase):
         self.send_message("/live/clip/stop", [track_id, clip_id])
 
     def remove_notes(self, track_id: int, clip_id: int, bar_number:int) -> None:
-        # TODO: add the option to remove notes between a time range given bar number param
+        """ [track_id, clip_id] + [start_pitch, pitch_span, start_time, time_span] """
         self.send_message("/live/clip/remove/notes", [track_id, clip_id] + [0, 127, bar_number, 8])
 
     def add_notes(
@@ -127,13 +127,13 @@ class AbletonMetaController:
     """
     def __init__(self):
         self.controller = AbletonOSCController()
-        self.generator = ChordProgressionGenerator()
-        self.valence = 0.1
-        self.arousal = 0.1
+        self.generator = ChordGenerator()
+        self.valence = 0.5
+        self.arousal = 0.5
         self.server_thread = None
 
     def setup(self):
-        """Setup the Ableton controller"""
+        """Starting the beat listener and creating the midi clips in the first 3 tracks"""
         self._start_beat_listener()
         # creating clips of 16 beats
         self.controller.clip_slot.create_clip(0, 0, 16) # piano
@@ -141,53 +141,50 @@ class AbletonMetaController:
         self.controller.clip_slot.create_clip(2, 0, 16) # bass
 
     def update_metrics(self, valence, arousal):
-        """Update the alpha and theta metrics dynamically."""
+        """Updates valence and arousal and modulates the based on those"""
         self.valence = valence
         self.arousal = arousal
         # self.modulate_piano(self.valence, self.arousal)
         # self.modulate_arpeggiator(self.valence, self.arousal)
-        self.modulate_global(self.valence, self.arousal)
+        self._modulate_global(self.valence, self.arousal)
 
     def _handle_beat(self, *args) -> None:
-        """Handle incoming beat messages, sends to ableton a new chord every 8 beats"""
-        beat_number = args[0]
-        print(f"Current beat: {beat_number}")
-        if beat_number == 7: # when beat is 7 a chord is created for beat 8 onwards
-            self.add_chord_to_ableton(self.arousal, self.valence, start_bar_num=8)
-        if beat_number == 15: # when beat is 15 a chord is created for beat 0 onwards
-            self.add_chord_to_ableton(self.arousal, self.valence, start_bar_num=0)
+        """Handle incoming beat messages, sends to ableton new midi every 8 beats"""
+        beat_number = args[1]
+        # print(f"Current beat: {beat_number}")
+        if beat_number == 22: # when beat is 7 a chord is created for beat 8 onwards
+            print("Creating chord for beat 8")
+            self.add_chord_to_ableton(start_bar_num=8)
+        if beat_number == 14: # when beat is 15 a chord is created for beat 0 onwards
+            print("Creating chord for beat 0")
+            self.add_chord_to_ableton(start_bar_num=0)
 
-    def add_chord_to_ableton(self, valence: float, arousal: float, start_bar_num:int) -> None:
-        # TODO is it redundant to pass valence and arousal?
-        """Generates the next chord for Ableton"""
-        chord_event = self.generator.generate_next_chord(valence, arousal)
+    def add_chord_to_ableton(self, start_bar_num:int) -> None:
+        """Generates the next chord for Ableton, removes all existing notes before adding new ones"""
+        chord_event = self.generator.generate_next_chord(self.valence, self.arousal)
         self.controller.remove_and_add_notes(0, 0, chord_event.to_ableton_osc(start_time=start_bar_num), start_bar_num)
         self.controller.remove_and_add_notes(2, 0, [int(chord_event.root-12), start_bar_num, chord_event.duration, chord_event.velocity, 0], start_bar_num) # bass
 
-    def modulate_piano(self, valence: float, arousal: float) -> None:
-        """Modulate piano parameters"""
+    def _modulate_piano(self, valence: float, arousal: float) -> None:
         growl = arousal * (127 - 1) + 1  # Scale arousal (0-1) to MIDI range (1-127)
         force = valence * (127 - 1) + 1  # Scale valence (0-1) to MIDI range (1-127)
         self.controller.device.set_parameter(0, 0, 1, growl)
         self.controller.device.set_parameter(0, 0, 2, force)
 
-    def modulate_bass(self, valence: float, arousal: float) -> None:
+    def _modulate_bass(self, valence: float, arousal: float) -> None:
         pass
 
-    def modulate_arpeggiator(self, valence: float, arousal: float) -> None:
-        """Modulate arpeggiator parameters like arp rate (from 1/4 to 1/16) and shape (from sin to square)"""
+    def _modulate_arpeggiator(self, valence: float, arousal: float) -> None:
         arp_rate = arousal * (10 - 5) + 5  # Scale arousal (0-1) to range 5-10
         self.controller.device.set_parameter(1, 0, 5, arp_rate) # parameter 5 of ableton arpeggiator controlling rate
         shape = valence # ableton params is between 0 and 1 and so is valence
         self.controller.device.set_parameter(1, 1, 4, shape) # parameter 4 of ableton wavetable controlling shapes
 
-    def modulate_global(self, valence: float, arousal: float) -> None:
-        """Modulate bpm based on arousal"""
-        self.controller.song.set_tempo(100 + (arousal - 0.5) * 20)  # oscillates between 90 and 110
+    def _modulate_global(self, valence: float, arousal: float) -> None:
+        self.controller.song.set_tempo(40 + arousal * 100)  # oscillates between 40 and 140
         # TODO map global volume
 
     def _start_beat_listener(self, receive_port: int = 11001):
-        """Start the OSC server to listen for beats"""
         def start_server(ip="0.0.0.0", port=receive_port):
             dispatcher = Dispatcher()
             dispatcher.map("/live/song/get/beat", self._handle_beat)

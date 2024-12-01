@@ -13,45 +13,59 @@ import numpy as np
 from scipy.signal import butter, lfilter, lfilter_zi
 from collections import deque
 
-NOTCH_B, NOTCH_A = butter(4, np.array([55, 65]) / (256 / 2), btype='bandstop')
+class DynamicScaler:
+    def __init__(self, window_size=100, target_range=(0, 1)):
+        """
+        Initialize the scaler with a rolling window to track recent values.
+        :param window_size: Number of recent values to consider for scaling.
+        :param target_range: The range to scale values into.
+        """
+        print(f"Scaler initialized with history of {window_size} and target range of {target_range}")
+        self.window_size = window_size
+        self.target_range = target_range
+        self.values = []  # List to store the rolling window of values.
+        self.ready = False  # Flag to indicate if the scaler is ready.
 
-def epoch(data, samples_epoch, samples_overlap=0):
-    """Extract epochs from a time series.
+    def update(self, value):
+        """
+        Update the rolling window with a new value.
+        :param value: The latest metric to be added to the window.
+        """
+        self.values.append(value)
+        if len(self.values) > self.window_size:
+            self.values.pop(0)  # Remove oldest value to maintain window size.
 
-    Given a 2D array of the shape [n_samples, n_channels]
-    Creates a 3D array of the shape [wlength_samples, n_channels, n_epochs]
+        # Set the scaler as ready once the window is fully populated.
+        if len(self.values) == self.window_size:
+            self.ready = True
 
-    Args:
-        data (numpy.ndarray or list of lists): data [n_samples, n_channels]
-        samples_epoch (int): window length in samples
-        samples_overlap (int): Overlap between windows in samples
-
-    Returns:
-        (numpy.ndarray): epoched data of shape
-    """
-
-    if isinstance(data, list):
-        data = np.array(data)
-
-    n_samples, n_channels = data.shape
-
-    samples_shift = samples_epoch - samples_overlap
-
-    n_epochs = int(
-        np.floor((n_samples - samples_epoch) / float(samples_shift)) + 1)
-
-    # Markers indicate where the epoch starts, and the epoch contains samples_epoch rows
-    markers = np.asarray(range(0, n_epochs + 1)) * samples_shift
-    markers = markers.astype(int)
-
-    # Divide data in epochs
-    epochs = np.zeros((samples_epoch, n_channels, n_epochs))
-
-    for i in range(0, n_epochs):
-        epochs[:, :, i] = data[markers[i]:markers[i] + samples_epoch, :]
-
-    return epochs
-
+    def scale(self, value):
+        """
+        Scale a value based on the current min and max of the rolling window.
+        Clamps the scaled value to the target range.
+        :param value: The value to scale.
+        :return: Scaled value within the target range.
+        """
+        if not self.ready:
+            raise ValueError("Scaler is not ready yet, window is not full.")
+        
+        min_val = min(self.values)
+        max_val = max(self.values)
+        
+        if max_val == min_val:
+            print("Warning: Division by zero avoided in scaling.")
+            # Avoid division by zero if all values in the window are identical.
+            return round(sum(self.target_range) / 2, 1)  # Neutral value in target range.
+        
+        # Linear scaling calculation
+        scaled_value = (value - min_val) / (max_val - min_val)
+        
+        # Scale to target range
+        scaled_result = self.target_range[0] + scaled_value * (self.target_range[1] - self.target_range[0])
+        
+        clamped_result = clamp(scaled_result, min_val=self.target_range[0], max_val=self.target_range[1])
+        
+        return round(clamped_result, 2)
 
 def compute_band_powers(eegdata, fs):
     #  TODO: refactor this function
@@ -110,6 +124,7 @@ def nextpow2(i):
         n *= 2
     return n
 
+NOTCH_B, NOTCH_A = butter(4, np.array([55, 65]) / (256 / 2), btype='bandstop')
 def update_buffer(data_buffer, new_data, notch=False, filter_state=None):
     """
     Concatenates "new_data" into "data_buffer", applies optional notch filtering,
@@ -146,60 +161,36 @@ def get_last_epoch(buffer_array, num_samples):
 def clamp(value, min_val, max_val):
     return max(min_val, min(max_val, value))
 
-class DynamicScaler:
-    def __init__(self, window_size=100, target_range=(0, 1)):
-        """
-        Initialize the scaler with a rolling window to track recent values.
-        :param window_size: Number of recent values to consider for scaling.
-        :param target_range: The range to scale values into.
-        """
-        print(f"Scaler initialized with history of {window_size} and target range of {target_range}")
-        self.window_size = window_size
-        self.target_range = target_range
-        self.values = []  # List to store the rolling window of values.
-        self.ready = False  # Flag to indicate if the scaler is ready.
+def initialize_buffer(fs, buffer_length, index_channel):
+    """
+    Initialize the EEG buffer and filter state.
+    :param fs: Sampling frequency.
+    :param buffer_length: Length of the buffer in seconds.
+    :param index_channel: List of channel indices.
+    :return: Initialized buffer and filter state.
+    """
+    eeg_buffer = np.zeros((int(fs * buffer_length), len(index_channel)))  # shape [samples, channels]
+    filter_state = None
+    return eeg_buffer, filter_state
 
-    def update(self, value):
-        """
-        Update the rolling window with a new value.
-        :param value: The latest metric to be added to the window.
-        """
-        self.values.append(value)
-        if len(self.values) > self.window_size:
-            self.values.pop(0)  # Remove oldest value to maintain window size.
-
-        # Set the scaler as ready once the window is fully populated.
-        if len(self.values) == self.window_size:
-            self.ready = True
-
-    def scale(self, value):
-        """
-        Scale a value based on the current min and max of the rolling window.
-        Clamps the scaled value to the target range.
-        :param value: The value to scale.
-        :return: Scaled value within the target range.
-        """
-        if not self.ready:
-            raise ValueError("Scaler is not ready yet, window is not full.")
-        
-        min_val = min(self.values)
-        max_val = max(self.values)
-        
-        if max_val == min_val:
-            print("Warning: Division by zero avoided in scaling.")
-            # Avoid division by zero if all values in the window are identical.
-            return round(sum(self.target_range) / 2, 1)  # Neutral value in target range.
-        
-        # Linear scaling calculation
-        scaled_value = (value - min_val) / (max_val - min_val)
-        
-        # Scale to target range
-        scaled_result = self.target_range[0] + scaled_value * (self.target_range[1] - self.target_range[0])
-        
-        clamped_result = clamp(scaled_result, min_val=self.target_range[0], max_val=self.target_range[1])
-        
-        return round(clamped_result, 2)
-
+def populate_initial_buffer(inlet, eeg_buffer, filter_state, shift_length, fs, index_channel):
+    """
+    Populate the initial EEG buffer with data.
+    :param inlet: LSL inlet to pull data from.
+    :param eeg_buffer: EEG buffer to populate.
+    :param filter_state: Filter state for notch filtering.
+    :param shift_length: Length to shift the buffer.
+    :param fs: Sampling frequency.
+    :param index_channel: List of channel indices.
+    :return: Updated EEG buffer and filter state.
+    """
+    while np.any(eeg_buffer == 0):
+        eeg_data, _ = inlet.pull_chunk(timeout=1, max_samples=int(shift_length * fs))
+        ch_data = np.array(eeg_data)[:, index_channel]
+        eeg_buffer, filter_state = update_buffer(
+            eeg_buffer, ch_data, notch=True, filter_state=filter_state
+        )
+    return eeg_buffer, filter_state
 
 def live_plot(valence, arousal, title:str="", max_points:int=100):
     """
@@ -220,7 +211,6 @@ def live_plot(valence, arousal, title:str="", max_points:int=100):
         fig.suptitle(title)
         line1, = ax.plot([], [], label="Valence")
         line2, = ax.plot([], [], label="Arousal")
-        ax.set_xlabel(f"History over the last {max_points} samples")
         ax.legend()
         ax.grid(True)
 
@@ -257,3 +247,39 @@ def live_plot(valence, arousal, title:str="", max_points:int=100):
     # Redraw the plot
     plt.pause(0.001)
 
+def epoch(data, samples_epoch, samples_overlap=0):
+    """Extract epochs from a time series.
+
+    Given a 2D array of the shape [n_samples, n_channels]
+    Creates a 3D array of the shape [wlength_samples, n_channels, n_epochs]
+
+    Args:
+        data (numpy.ndarray or list of lists): data [n_samples, n_channels]
+        samples_epoch (int): window length in samples
+        samples_overlap (int): Overlap between windows in samples
+
+    Returns:
+        (numpy.ndarray): epoched data of shape
+    """
+
+    if isinstance(data, list):
+        data = np.array(data)
+
+    n_samples, n_channels = data.shape
+
+    samples_shift = samples_epoch - samples_overlap
+
+    n_epochs = int(
+        np.floor((n_samples - samples_epoch) / float(samples_shift)) + 1)
+
+    # Markers indicate where the epoch starts, and the epoch contains samples_epoch rows
+    markers = np.asarray(range(0, n_epochs + 1)) * samples_shift
+    markers = markers.astype(int)
+
+    # Divide data in epochs
+    epochs = np.zeros((samples_epoch, n_channels, n_epochs))
+
+    for i in range(0, n_epochs):
+        epochs[:, :, i] = data[markers[i]:markers[i] + samples_epoch, :]
+
+    return epochs
