@@ -13,10 +13,10 @@ class Band:
 BUFFER_LENGTH = 5
 
 # Length of the epochs used to compute the FFT (in seconds)
-EPOCH_LENGTH = 2
+EPOCH_LENGTH = 1
 
 # Amount of overlap between two consecutive epochs (in seconds)
-OVERLAP_LENGTH = 1.5
+OVERLAP_LENGTH = 0.8
 
 # Amount to 'shift' the start of each next consecutive epoch
 SHIFT_LENGTH = EPOCH_LENGTH - OVERLAP_LENGTH
