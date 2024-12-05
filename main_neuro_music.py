@@ -32,8 +32,10 @@ if __name__ == "__main__":
     # Configure the global logger
     logging.basicConfig(
         filename='system.log',
+        filemode='w',  # This will overwrite the log file on each run
         level=logging.DEBUG,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%H:%M:%S'  # More compact time format
     )
     logger = logging.getLogger(__name__)
 
@@ -116,9 +118,9 @@ if __name__ == "__main__":
             scaled_valence = valence_scaler.scale(valence)
             controller.update_metrics(valence=scaled_valence, arousal=scaled_arousal)
 
-            utils.live_plot(scaled_valence, scaled_arousal, title="Scaled")
-            utils.live_plot(valence, arousal, title="Not Scaled")
+            # utils.live_plot(scaled_valence, scaled_arousal, title="Scaled")
+            # utils.live_plot(valence, arousal, title="Not Scaled")
 
     except KeyboardInterrupt:
         logger.info("Closing application")
-        # TODO: close all the stuff
+        controller.stop()

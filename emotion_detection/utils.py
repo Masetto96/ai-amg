@@ -41,7 +41,7 @@ class DynamicScaler:
             self.values.pop(0)  # Remove oldest value to maintain window size.
 
         # Set the scaler as ready once the window is fully populated.
-        if len(self.values) == self.window_size:
+        if not self.ready and len(self.values) == self.window_size:
             logger.debug("Scaler is ready")
             self.ready = True
 

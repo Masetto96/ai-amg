@@ -58,9 +58,9 @@ For real-time Essentia predictions debugging, refer to [this tutorial](https://e
 - Compute neuro metrics corresponding to valence, that is the brain activity asymmetry.
 
 ### Music Generation
-- Refine and improve sonification:
-    - Cherry pick best instruments from Ableton
-- Review velocity computation (sometimes high arousal (e.g. 0.9) still results in a "low" velocity (e.g. 60))
+- Implement chord voicing variation
+- Refine sonification
+- Add and review rules for arpeggiator
 
 ### Evaluation    
 - Implement evaluation with essentia models

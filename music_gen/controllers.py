@@ -10,6 +10,7 @@ from pythonosc import udp_client
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import BlockingOSCUDPServer
 from music_gen.generator import MetaGenerator
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -124,16 +125,18 @@ class AbletonOSCController:
         self.clip.add_notes(track_index, clip_index, midi_notes)
 
     def set_saturator_send(self, value) -> None:
-        """Sets send amount of saturator of all tracks"""
+        """Sets send amount of saturator of all tracks, except for bass"""
         self.track.set_send(0, 2, value) 
         self.track.set_send(1, 2, value) 
-        self.track.set_send(2, 2, value) 
+        self.track.set_send(3, 2, value) 
 
     def set_tracks_volume(self, volume: float) -> None:
         """Set volume of all tracks, oscillates between 0.5 and .9"""
         self.track.set_volume(0, volume)
         self.track.set_volume(1, volume)
-        self.track.set_volume(2, volume)
+        self.track.set_volume(2, volume + random.uniform(-0.1, 0))
+        self.track.set_volume(3, volume + random.uniform(-0.1, 0))
+
 
 
 class AbletonMetaController:
@@ -149,11 +152,13 @@ class AbletonMetaController:
 
     def setup(self):
         """Starts the beat listener and creates midi clips of length 16 bars in the first 3 tracks"""
-        logger.info("Setting up AbletonMetaController")
+        logger.debug("Setting up AbletonMetaController: create empty clips and start listening to beats")
         self._start_beat_listener()
         self.controller.clip_slot.create_clip(0, 0, 16) # piano
         self.controller.clip_slot.create_clip(1, 0, 16) # arpeggiator
         self.controller.clip_slot.create_clip(2, 0, 16) # bass
+        self.controller.clip_slot.create_clip(3, 0, 16) # pad
+
 
     def update_metrics(self, valence, arousal):
         """Updates valence and arousal and modulates params based on those"""
@@ -170,10 +175,10 @@ class AbletonMetaController:
         beat_number = args[1]
         logger.debug("Current beat: %d", beat_number)
         if beat_number == 22: # when beat is 7 a chord is created for beat 8 onwards
-            logger.info("Creating chord for beat 8")
+            logger.debug("Creating chord for beat 8")
             self.add_events_to_ableton(start_bar_num=8)
         if beat_number == 14: # when beat is 15 a chord is created for beat 0 onwards
-            logger.info("Creating chord for beat 0")
+            logger.debug("Creating chord for beat 0")
             self.add_events_to_ableton(start_bar_num=0)
 
     def add_events_to_ableton(self, start_bar_num:int) -> None:
@@ -184,8 +189,9 @@ class AbletonMetaController:
         self.controller.remove_and_add_notes(0, 0, chord_event.to_ableton_osc(start_time=start_bar_num), start_bar_num)
         # bass, only the root note
         self.controller.remove_and_add_notes(2, 0, [int(chord_event.root-12), start_bar_num, chord_event.duration, chord_event.velocity, 0], start_bar_num)
-         # arpeggiator
+        # arpeggiator
         self.controller.remove_and_add_notes(1, 0, arp_event.to_ableton_osc(start_time=start_bar_num), start_bar_num)
+        self.controller.remove_and_add_notes(3, 0, chord_event.to_ableton_osc(start_time=start_bar_num), start_bar_num)
 
     # def _modulate_piano(self, valence: float, arousal: float) -> None:
     #     growl = arousal * (127 - 1) + 1  # Scale arousal (0-1) to MIDI range (1-127)
@@ -202,9 +208,14 @@ class AbletonMetaController:
         self.controller.device.set_parameter(1, 1, 4, shape) # parameter 4 of ableton wavetable controlling shapes
 
     def _modulate_global(self, valence: float, arousal: float) -> None:
-        self.controller.song.set_tempo(50 + arousal * 90)  # oscillates between 50 and 130
-        self.controller.set_tracks_volume(0.5 + valence * 0.4)  # oscillates between 0.5 and .9
+        self.controller.song.set_tempo(60 + arousal * 70)  # oscillates between 50 and 130
+        self.controller.set_tracks_volume(0.5 + valence * 0.4)  # oscillates between 0.6 and .9
         self.controller.set_saturator_send(1-valence) # inverse valence
+
+    def stop(self):
+        """Stops the beat listener server thread"""
+        if self.server_thread:
+            self.server_thread.join(timeout=5)
 
     def _start_beat_listener(self, receive_port: int = 11001):
         def start_server(ip="0.0.0.0", port=receive_port):
@@ -221,6 +232,3 @@ class AbletonMetaController:
 
         # Sends OSC messages to start listening for beats
         self.controller.song.start_listen_to_beats()
-
-        # TODO: add a stop function to stop everything
-        

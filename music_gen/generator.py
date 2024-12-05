@@ -78,7 +78,7 @@ class MetaGenerator:
         pitch = self._compute_pitch(valence)
         velocity = self._compute_velocity(arousal)
         chord_event = self.create_chord(tonal_midi_note, mode_intervals, velocity, pitch)
-        k = int(4 + 12 * arousal) # number of notes in the arpeggiator
+        k = int(2 + 8 * arousal) # number of notes in the arpeggiator
         arp_event = self.create_arpeggiator(tonal_midi=tonal_midi_note, mode_name=mode_name, k=k, velocity=velocity, pitch_shift=pitch)
         return chord_event, arp_event
     
@@ -95,9 +95,13 @@ class MetaGenerator:
         return 12 if valence > 0.80 else -12 if valence < 0.20 else 0
 
     def _compute_velocity(self, arousal: float) -> int:
-        v = random.uniform(50, 40 * arousal + 60)
-        logger.debug("Arousal: %f, Computed velocity: %f", arousal, v)
-        return max(50, min(127, int(v)))
+        # Adjust the formula to better reflect the arousal value
+        min_velocity = 50
+        max_velocity = 127
+        v = int(random.uniform(min_velocity, max_velocity * arousal))
+        logger.debug("Arousal: %f, Computed velocity: %d", arousal, v)
+        # v = min(max_velocity, v)
+        return max(min_velocity, v) # making sure it's not more than 127
 
     def create_chord(self, tonal_midi:int, mode_intervals, velocity:int, pitch_shift:int):
         """Returns a ChordEvent object constructed on the 1, 3, 5, 7 degrees of the mode intervals, applies pitch shift"""
@@ -106,6 +110,7 @@ class MetaGenerator:
         chord_intervals = mode_intervals[idx_intervals]
         # turn that to midi notes by adding midi tonal center (e.g. C = 60) and adding pitch shift amount in semitones
         chord_midi_notes = intervals_to_midi_notes(intervals=chord_intervals, midi_tonal_note=tonal_midi, pitch=pitch_shift)
+        logger.debug("Chord MIDI notes: %s", chord_midi_notes)
         return ChordEvent(root=tonal_midi, notes=chord_midi_notes, duration=8, velocity=velocity)
     
     def create_arpeggiator(self, tonal_midi:int, mode_name:str, velocity, pitch_shift:int, k:int=4):
@@ -118,46 +123,42 @@ class MetaGenerator:
     def _apply_l_system_rules(self, sequence: list, rules: dict) -> list:
         """Apply rules that can produce either single elements or sequences"""
         next_sequence = []
-        logger.debug("L-System current sequence: %s", sequence)
+        logger.debug("Current sequence: %s", sequence)
         
-        for symbol in sequence:
-            if symbol in rules:
-                choice = random.choice(rules[symbol])
-                logger.debug("L-System rule applied: %s -> %s", symbol, choice)
-                
-                # Handle both single elements and sequences
-                if isinstance(choice, list):
-                    next_sequence.extend(choice)
-                else:
-                    next_sequence.append(choice)
-            else:
-                logger.warning("No L-System rule found for symbol: %s", symbol)
-                next_sequence.append(symbol)
+        # only using last symbol for now
+        symbol = sequence[-1]
+        if symbol in rules:
+            choice = random.choice(rules[symbol])
+            logger.debug("Rule applied: %s -> %s", symbol, choice)
             
-        logger.debug("L-System next sequence: %s", next_sequence)
+            # Handle both single elements and sequences
+            if isinstance(choice, list):
+                next_sequence.extend(choice)
+            else:
+                next_sequence.append(choice)
+        else:
+            logger.warning("No rule found for symbol: %s", symbol)
+            next_sequence.append(symbol)
+            
+        logger.debug("Next sequence: %s", next_sequence)
         return next_sequence
 
     def _generate_melody_interv(self, mode_name:str, k: int):
         mode_data = self.mode_data.get(mode_name)
         rules = mode_data.get("rules")
         intervals = mode_data.get("intervals")
-        sequence = "T" # for now we start with the tonic
+        sequence = ["T"] # for now we start with the tonic
         # TODO: idea for later is to randomly select the starting symbol (when rules are better defined)
-        all_symbols = [intervals.get(sequence)]
+        all_intervals = [intervals.get(sequence[0])]
         
-        logger.info("Generating melody with %d iterations in %s mode", k, mode_name)
+        logger.info("Generating melody with %d notes in %s mode", k, mode_name)
         
-        for i in range(k*2): # dirty hack to make sure iterations are enough without getting stuck
-            if len(all_symbols) == k:
-                logger.debug("Melody generation complete with %d symbols", len(all_symbols))
-                return np.array(all_symbols)
-    
+        while len(all_intervals) < k:
             sequence = self._apply_l_system_rules(sequence, rules)
-            logger.debug("Iteration %d: Current sequence = %s", i, sequence)
-            all_symbols.extend([intervals.get(symbol) for symbol in sequence])
+            all_intervals.extend([intervals.get(symbol) for symbol in sequence])
 
-        logger.debug("Final melody symbols: %s", all_symbols)
-        return np.array(all_symbols)
+        logger.info("Final melody intervals: %s", all_intervals)
+        return np.array(all_intervals)
 
 class CircleOfFifths:
     """Class to navigate the circle of fifths and fourths"""
@@ -191,7 +192,6 @@ class CircleOfFifths:
         """Returns next tonal center and its MIDI pitch based on the start note and steps"""
         # Select the appropriate circle based on direction
         current_circle = self.fifth_order if direction == 'fifths' else self.fourth_order
-        logger.debug("Navigating %d steps %s from %s", steps, direction, start_note)      
         # Find the index of the start note
         try:
             start_index = current_circle.index(start_note)
@@ -211,7 +211,7 @@ class CircleOfFifths:
 
 def intervals_to_midi_notes(intervals:np.array, midi_tonal_note:int, pitch:int) -> np.array:
     """
-    Converts a list of intervals to MIDI notes based on a tonal center and pitch shift 
-    ([0, 2, 4] -> [60, 62, 64] when pitch is 0)
+    Converts a list of intervals of semitones to MIDI notes based on a tonal center and pitch shift 
+    ([0, 2, 4] -> [60, 62, 64] when pitch is 0 and tonal center is 60)
     """
     return midi_tonal_note + intervals + pitch
