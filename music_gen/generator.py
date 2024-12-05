@@ -1,8 +1,10 @@
 import random
 import json
+import logging
 from dataclasses import dataclass
 import numpy as np
-from typing import List
+
+logger = logging.getLogger(__name__)
 
 # ordered from most positive to most negative
 IDX_TO_MODE = [
@@ -25,7 +27,7 @@ class ChordEvent:
         """
         Convert the chord event to a MIDI list for Ableton OSC.
         Each note is (midi_note, start_time (in beats), duration, velocity, mute)
-        Adds all the notes in a list to be sent to Ableton.
+        Concatenates all the notes in a list to be sent to Ableton.
         """
         return [item for note in self.notes for item in (int(note), start_time, self.duration, self.velocity, 0)]
 
@@ -37,11 +39,10 @@ class ArpeggiatorEvent(ChordEvent):
         Spreads notes evenly across 8 beats.
         Each note is (midi_note, start_time, duration, velocity, mute)
         """
-        TOTAL_BEATS = 8
         num_notes = len(self.notes)
         
         # Each note gets equal portion of total time
-        note_duration = TOTAL_BEATS / max(num_notes, 1)
+        note_duration = self.duration / max(num_notes, 1)
         
         return [
             item 
@@ -59,7 +60,7 @@ class MetaGenerator:
     """Generates chords and arpeggiator events based on emotional metrics"""
     def __init__(self):
         self.mode_data = self._load_mode_data()
-        self.current_chord = "C"
+        self.current_chord = "C" # to start with
         self.circle = CircleOfFifths()
     
     def _load_mode_data(self):
@@ -68,7 +69,7 @@ class MetaGenerator:
     
     def generate_next_event(self, valence, arousal):
         """Move around the circle of fifths and generate a chord and arpeggiator event"""
-        # moving around the circle of fifths 
+        # moving (randomly) around the circle 
         steps = 0 if random.random() < (1 - arousal) else random.choice([1, 2, 3])
         direction = random.choice(['fifths', 'fourths'])
         self.current_chord, tonal_midi_note = self.circle.navigate_circle(self.current_chord, steps, direction)
@@ -76,10 +77,8 @@ class MetaGenerator:
         mode_intervals, mode_name = self._get_mode(valence)
         pitch = self._compute_pitch(valence)
         velocity = self._compute_velocity(arousal)
-        print(f"Mode intervals: {mode_intervals}, tonal center: {self.current_chord} \n")
-        # generating next chord
         chord_event = self.create_chord(tonal_midi_note, mode_intervals, velocity, pitch)
-        k = int(2 + 10 * arousal) # number of notes in the arpeggiator
+        k = int(4 + 12 * arousal) # number of notes in the arpeggiator
         arp_event = self.create_arpeggiator(tonal_midi=tonal_midi_note, mode_name=mode_name, k=k, velocity=velocity, pitch_shift=pitch)
         return chord_event, arp_event
     
@@ -88,7 +87,7 @@ class MetaGenerator:
         # Determine the mode index based on valence
         mode_idx = int(6 - (5 * valence)) - 1 # minus 1 to convert to 0-based index
         mode_name = IDX_TO_MODE[mode_idx]
-        print(f"Current mode: {mode_name}")
+        logger.info("Selected mode: %s for valence %f", mode_name, valence)
         mode_data = self.mode_data.get(mode_name)
         return np.array(list(mode_data.get("intervals").values())), mode_name
 
@@ -97,11 +96,12 @@ class MetaGenerator:
 
     def _compute_velocity(self, arousal: float) -> int:
         v = random.uniform(50, 40 * arousal + 60)
+        logger.debug("Arousal: %f, Computed velocity: %f", arousal, v)
         return max(50, min(127, int(v)))
 
     def create_chord(self, tonal_midi:int, mode_intervals, velocity:int, pitch_shift:int):
         """Returns a ChordEvent object constructed on the 1, 3, 5, 7 degrees of the mode intervals, applies pitch shift"""
-        idx_intervals = [0, 2, 4, 6]
+        idx_intervals = [0, 2, 4, 6] # zero-indexed
         # get the 1st, 3rd, 5th, 7th degrees from the mode intervals to create the chord
         chord_intervals = mode_intervals[idx_intervals]
         # turn that to midi notes by adding midi tonal center (e.g. C = 60) and adding pitch shift amount in semitones
@@ -110,35 +110,54 @@ class MetaGenerator:
     
     def create_arpeggiator(self, tonal_midi:int, mode_name:str, velocity, pitch_shift:int, k:int=4):
         """Returns an ArpeggiatorEvent note intervals are generated based on probabilities"""
-        mode_data = self.mode_data.get(mode_name)
-        melody_intervals = self._generate_melody_intervals(mode_data, k=k)
+        melody_intervals = self._generate_melody_interv(mode_name, k=k)
         arp_midi_notes = intervals_to_midi_notes(melody_intervals, tonal_midi, pitch_shift)
         return ArpeggiatorEvent(notes=arp_midi_notes, duration=8, velocity=velocity, root=tonal_midi)
     
-    def _generate_melody_intervals(self, mode_data, k: int):
+
+    def _apply_l_system_rules(self, sequence: list, rules: dict) -> list:
+        """Apply rules that can produce either single elements or sequences"""
+        next_sequence = []
+        logger.debug("L-System current sequence: %s", sequence)
+        
+        for symbol in sequence:
+            if symbol in rules:
+                choice = random.choice(rules[symbol])
+                logger.debug("L-System rule applied: %s -> %s", symbol, choice)
+                
+                # Handle both single elements and sequences
+                if isinstance(choice, list):
+                    next_sequence.extend(choice)
+                else:
+                    next_sequence.append(choice)
+            else:
+                logger.warning("No L-System rule found for symbol: %s", symbol)
+                next_sequence.append(symbol)
+            
+        logger.debug("L-System next sequence: %s", next_sequence)
+        return next_sequence
+
+    def _generate_melody_interv(self, mode_name:str, k: int):
+        mode_data = self.mode_data.get(mode_name)
         rules = mode_data.get("rules")
         intervals = mode_data.get("intervals")
+        sequence = "T" # for now we start with the tonic
+        # TODO: idea for later is to randomly select the starting symbol (when rules are better defined)
+        all_symbols = [intervals.get(sequence)]
+        
+        logger.info("Generating melody with %d iterations in %s mode", k, mode_name)
+        
+        for i in range(k*2): # dirty hack to make sure iterations are enough without getting stuck
+            if len(all_symbols) == k:
+                logger.debug("Melody generation complete with %d symbols", len(all_symbols))
+                return np.array(all_symbols)
+    
+            sequence = self._apply_l_system_rules(sequence, rules)
+            logger.debug("Iteration %d: Current sequence = %s", i, sequence)
+            all_symbols.extend([intervals.get(symbol) for symbol in sequence])
 
-        current_symbols = ["T"]  # Start with the tonic
-        full_melody = [0]  # Initialize with tonic interval  
-        max_iterations = k
-        iterations = 0
-
-        while iterations < max_iterations:
-            next_symbols = []
-            for symbol in current_symbols:
-                if symbol in rules:
-                    next_symbol = random.choice(rules[symbol])
-                    print(f"Symbol {symbol} -> {next_symbol}")
-                    next_symbols.append(next_symbol)  # Store symbol for next iteration
-                    full_melody.append(intervals.get(next_symbol))  
-            if not next_symbols:
-                print("No valid transitions found")
-                break               
-            current_symbols = next_symbols
-            iterations += 1
-
-        return np.array(full_melody)
+        logger.debug("Final melody symbols: %s", all_symbols)
+        return np.array(all_symbols)
 
 class CircleOfFifths:
     """Class to navigate the circle of fifths and fourths"""
@@ -171,16 +190,24 @@ class CircleOfFifths:
     def navigate_circle(self, start_note, steps: int, direction='fifths'):
         """Returns next tonal center and its MIDI pitch based on the start note and steps"""
         # Select the appropriate circle based on direction
-        current_circle = self.fifth_order if direction == 'fifths' else self.fourth_order      
+        current_circle = self.fifth_order if direction == 'fifths' else self.fourth_order
+        logger.debug("Navigating %d steps %s from %s", steps, direction, start_note)      
         # Find the index of the start note
         try:
             start_index = current_circle.index(start_note)
         except ValueError:
+            logger.error("Invalid note %s not found in the circle of fifths", start_note)
             raise ValueError(f"Note {start_note} not found in the circle")       
         # Calculate the destination index
         # Use modulo to wrap around the circle
         dest_index = int(round((start_index + steps) % len(current_circle)))    
-        return current_circle[dest_index], self._to_midi_pitch(current_circle[dest_index])   
+        next_note = current_circle[dest_index]
+        midi_pitch = self._to_midi_pitch(next_note)
+        
+        logger.info("Circle navigation: %s -> %s (%d steps %s)", 
+                   start_note, next_note, steps, direction)
+        logger.debug("Note %s has MIDI pitch %d", next_note, midi_pitch)
+        return next_note, midi_pitch
 
 def intervals_to_midi_notes(intervals:np.array, midi_tonal_note:int, pitch:int) -> np.array:
     """

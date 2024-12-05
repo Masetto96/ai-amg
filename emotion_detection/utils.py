@@ -8,10 +8,15 @@ epoching, and transforming EEG data into frequency bands
 @author: Cassani
 """
 
+import logging
+from collections import deque
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import butter, lfilter, lfilter_zi
-from collections import deque
+
+
+logger = logging.getLogger(__name__)
+
 
 class DynamicScaler:
     def __init__(self, window_size=100, target_range=(0, 1)):
@@ -20,7 +25,7 @@ class DynamicScaler:
         :param window_size: Number of recent values to consider for scaling.
         :param target_range: The range to scale values into.
         """
-        print(f"Scaler initialized with history of {window_size} and target range of {target_range}")
+        logger.debug("Scaler initialized with history of %d and target range of %s", window_size, target_range)
         self.window_size = window_size
         self.target_range = target_range
         self.values = []  # List to store the rolling window of values.
@@ -37,6 +42,7 @@ class DynamicScaler:
 
         # Set the scaler as ready once the window is fully populated.
         if len(self.values) == self.window_size:
+            logger.debug("Scaler is ready")
             self.ready = True
 
     def scale(self, value):
@@ -53,7 +59,7 @@ class DynamicScaler:
         max_val = max(self.values)
         
         if max_val == min_val:
-            print("Warning: Division by zero avoided in scaling.")
+            logger.warning("Division by zero avoided in scaling.")
             # Avoid division by zero if all values in the window are identical.
             return round(sum(self.target_range) / 2, 1)  # Neutral value in target range.
         
@@ -169,6 +175,7 @@ def initialize_buffer(fs, buffer_length, index_channel):
     :param index_channel: List of channel indices.
     :return: Initialized buffer and filter state.
     """
+    logger.info("Initializing buffer with length %d seconds and sampling frequency %d Hz", buffer_length, fs)
     eeg_buffer = np.zeros((int(fs * buffer_length), len(index_channel)))  # shape [samples, channels]
     filter_state = None
     return eeg_buffer, filter_state
@@ -184,12 +191,14 @@ def populate_initial_buffer(inlet, eeg_buffer, filter_state, shift_length, fs, i
     :param index_channel: List of channel indices.
     :return: Updated EEG buffer and filter state.
     """
+    logger.debug("Populating initial buffer with EEG data")
     while np.any(eeg_buffer == 0):
         eeg_data, _ = inlet.pull_chunk(timeout=1, max_samples=int(shift_length * fs))
         ch_data = np.array(eeg_data)[:, index_channel]
         eeg_buffer, filter_state = update_buffer(
             eeg_buffer, ch_data, notch=True, filter_state=filter_state
         )
+    logger.debug("Buffer populated successfully")
     return eeg_buffer, filter_state
 
 def live_plot(valence, arousal, title:str="", max_points:int=100):

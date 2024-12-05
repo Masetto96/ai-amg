@@ -30,14 +30,24 @@ The system operates in three main steps:
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+pip install -r <requirements_file.txt>
 ```
 
 ## Usage
-Start music neuro feedback
+Start EEG stream
 ```bash
-chmod +x start_music_nf.sh
+chmod +x start_muse_stream.sh
 ./start_muse_stream.sh
+```
+
+Start music neuro feedback
+```python
+python main_neuro_music.py
+```
+
+To run tests
+```bash
+pytest tests -v
 ```
 
 ## Troubleshooting
@@ -50,6 +60,7 @@ For real-time Essentia predictions debugging, refer to [this tutorial](https://e
 ### Music Generation
 - Refine and improve sonification:
     - Cherry pick best instruments from Ableton
+- Review velocity computation (sometimes high arousal (e.g. 0.9) still results in a "low" velocity (e.g. 60))
 
 ### Evaluation    
 - Implement evaluation with essentia models

@@ -15,7 +15,7 @@ Adapted from https://github.com/NeuroTechX/bci-workshop
 
 import numpy as np
 from pylsl import StreamInlet, resolve_byprop  # Module to receive EEG data
-from music_gen.ableton_controllers import AbletonMetaController
+from music_gen.controllers import AbletonMetaController
 from emotion_detection import utils 
 
 
