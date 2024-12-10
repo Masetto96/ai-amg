@@ -2,6 +2,7 @@
 https://github.com/ideoforms/AbletonOSC
 """
 
+import random
 import threading
 import time
 import logging
@@ -10,7 +11,6 @@ from pythonosc import udp_client
 from pythonosc.dispatcher import Dispatcher
 from pythonosc.osc_server import BlockingOSCUDPServer
 from music_gen.generator import MetaGenerator
-import random
 
 logger = logging.getLogger(__name__)
 
