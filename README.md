@@ -56,6 +56,7 @@ For real-time Essentia predictions debugging, refer to [this tutorial](https://e
 ## Future Development (TODOs:)
 ### Emotion Detection
 - Compute neuro metrics corresponding to valence, that is the brain activity asymmetry.
+- Use deque for buffer
 
 ### Music Generation
 - Implement chord voicing variation
@@ -69,3 +70,4 @@ For real-time Essentia predictions debugging, refer to [this tutorial](https://e
 - Find alternatives to extract valence and arousal from EEG (*for later*)
 - Use suspended chords for neutral valence 
 - Experiment with launching clips rather than deleting notes and adding new one
+- use welch to compute spectral power

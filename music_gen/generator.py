@@ -51,7 +51,7 @@ class ArpeggiatorEvent(ChordEvent):
                 int(note),                    # midi note
                 start_time + i * note_duration,  # start time
                 note_duration,                # duration
-                self.velocity,               # velocity
+                self.velocity + random.uniform(-15, 15),  # velocity with small variation
                 0                            # mute
             )
         ]
@@ -69,16 +69,15 @@ class MetaGenerator:
     
     def generate_next_event(self, valence, arousal):
         """Move around the circle of fifths and generate a chord and arpeggiator event"""
-        # moving (randomly) around the circle 
         steps = 0 if random.random() < (1 - arousal) else random.choice([1, 2, 3])
-        direction = random.choice(['fifths', 'fourths'])
+        direction = 'fifths' if valence > 0.5 else 'fourths'
         self.current_chord, tonal_midi_note = self.circle.navigate_circle(self.current_chord, steps, direction)
         # compute mode, velocity and pitch based on emotional metrics
         mode_intervals, mode_name = self._get_mode(valence)
         pitch = self._compute_pitch(valence)
         velocity = self._compute_velocity(arousal)
         chord_event = self.create_chord(tonal_midi_note, mode_intervals, velocity, pitch)
-        k = int(2 + 8 * arousal) # number of notes in the arpeggiator
+        k = int(2 + 4 * arousal) # number of notes in the arpeggiator
         arp_event = self.create_arpeggiator(tonal_midi=tonal_midi_note, mode_name=mode_name, k=k, velocity=velocity, pitch_shift=pitch)
         return chord_event, arp_event
     
@@ -92,7 +91,8 @@ class MetaGenerator:
         return np.array(list(mode_data.get("intervals").values())), mode_name
 
     def _compute_pitch(self, valence) -> int:
-        return 12 if valence > 0.80 else -12 if valence < 0.20 else 0
+        return 0
+        # return 12 if valence > 0.80 else -12 if valence < 0.20 else 0
 
     def _compute_velocity(self, arousal: float) -> int:
         # Adjust the formula to better reflect the arousal value
@@ -116,9 +116,9 @@ class MetaGenerator:
     def create_arpeggiator(self, tonal_midi:int, mode_name:str, velocity, pitch_shift:int, k:int=4):
         """Returns an ArpeggiatorEvent note intervals are generated based on probabilities"""
         melody_intervals = self._generate_melody_interv(mode_name, k=k)
+        pitch_shift += 12 # one octave up
         arp_midi_notes = intervals_to_midi_notes(melody_intervals, tonal_midi, pitch_shift)
         return ArpeggiatorEvent(notes=arp_midi_notes, duration=8, velocity=velocity, root=tonal_midi)
-    
 
     def _apply_l_system_rules(self, sequence: list, rules: dict) -> list:
         """Apply rules that can produce either single elements or sequences"""
@@ -148,7 +148,7 @@ class MetaGenerator:
         rules = mode_data.get("rules")
         intervals = mode_data.get("intervals")
         sequence = ["T"] # for now we start with the tonic
-        # TODO: idea for later is to randomly select the starting symbol (when rules are better defined)
+        # TODO: idea for later is to start with the note that is most characteristic for the mode
         all_intervals = [intervals.get(sequence[0])]
         
         logger.info("Generating melody with %d notes in %s mode", k, mode_name)
@@ -213,5 +213,6 @@ def intervals_to_midi_notes(intervals:np.array, midi_tonal_note:int, pitch:int) 
     """
     Converts a list of intervals of semitones to MIDI notes based on a tonal center and pitch shift 
     ([0, 2, 4] -> [60, 62, 64] when pitch is 0 and tonal center is 60)
-    """
+    """    
+    logger.debug("Converting intervals %s to MIDI notes with tonal center %d and pitch shift %d", intervals, midi_tonal_note, pitch)
     return midi_tonal_note + intervals + pitch

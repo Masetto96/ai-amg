@@ -11,18 +11,18 @@ class Band:
     Beta = 3
 
 # Length of the EEG data buffer (in seconds)
-BUFFER_LENGTH = 5
+BUFFER_LENGTH = 4
 
 # Length of the epochs used to compute the FFT (in seconds)
-EPOCH_LENGTH = 1
+EPOCH_LENGTH = 2
 
 # Amount of overlap between two consecutive epochs (in seconds)
-OVERLAP_LENGTH = 0.8
+OVERLAP_LENGTH = 1.5
 
 # Amount to 'shift' the start of each next consecutive epoch
 SHIFT_LENGTH = EPOCH_LENGTH - OVERLAP_LENGTH
 
-BAND_BUFFER_LENGTH = 20
+BAND_BUFFER_LENGTH = 10
 
 # All the 4 electrodes
 INDEX_CHANNEL = [0, 1, 2, 3]
@@ -107,6 +107,7 @@ if __name__ == "__main__":
 
             valence = aggregated_theta / aggregated_alpha # anxiety protocol
             arousal = aggregated_beta / aggregated_alpha # rafa ramirez protocol
+
             # TODO: clamp the raw metrics to a wide range
             arousal_scaler.update(arousal)
             valence_scaler.update(valence)

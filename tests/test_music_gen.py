@@ -12,6 +12,7 @@ def meta_generator():
 def test_melody_intervals_arp(meta_generator):
     k = 4
     intervals = meta_generator._generate_melody_interv("ionian", k=k)
+    # TODO: assert that the intervals are within the mode intervals
     assert len(intervals) == k
     assert isinstance(intervals, np.ndarray)
 
