@@ -1,0 +1,39 @@
+{
+    "lydian": {
+      "chords": ["fmaj7#11", "g7sus4"],
+      "implementation": [[65, 69, 72, 71], [67, 67, 74, 72]],
+      "characteristicinterval": "augmented 4th (f to b)",
+      "tonalcenter": 65
+    },
+    "ionian": {
+      "chords": ["cmaj7", "g7"],
+      "implementation": [[60, 64, 67, 71], [59, 62, 67, 65]],
+      "characteristicinterval": "major 7th (c to b)",
+      "tonalcenter": 60
+    },
+    "mixolydian": {
+      "chords": ["g7", "f6/9"],
+      "implementation": [[55, 59, 62, 65], [53, 57, 60, 62]],
+      "characteristicinterval": "minor 7th (g to f)",
+      "tonalcenter": 55
+    },
+    "dorian": {
+      "chords": ["dm7", "g7"],
+      "implementation": [[62, 65, 69, 72], [62, 65, 67, 71]],
+      "characteristicinterval": "major 6th (d to b)",
+      "tonalcenter": 62
+    },
+    "aeolian": {
+      "chords": ["am7", "em7"],
+      "implementation": [[57, 60, 64, 67], [55, 59, 64, 62]],
+      "characteristicinterval": "minor 6th (a to f)",
+      "tonalcenter": 57
+    },
+    "phrygian": {
+      "chords": ["em7", "fmaj7"],
+      "implementation": [[64, 67, 71, 74], [65, 69, 72, 76]],
+      "characteristicinterval": "minor 2nd (e to f)",
+      "tonalcenter": 52
+    }
+  }
+  

@@ -61,7 +61,6 @@ For real-time Essentia predictions debugging, refer to [this tutorial](https://e
 ### Music Generation
 - Implement chord voicing variation
 - Refine sonification
-- Add and review rules for arpeggiator
 
 ### Evaluation    
 - Implement evaluation with essentia models

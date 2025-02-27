@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+#windows files
+desktop.ini
+
 # hidden venv
 .*
 
