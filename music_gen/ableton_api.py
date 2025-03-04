@@ -27,9 +27,9 @@ class ClipAPI(OSCBase):
     def stop_clip(self, track_id: int, clip_id: int) -> None:
         self.send_message("/live/clip/stop", [track_id, clip_id])
 
-    def remove_notes(self, track_id: int, clip_id: int, bar_number:int) -> None:
+    def remove_notes(self, track_id: int, clip_id: int, start_bar_number:int, time_span:int) -> None:
         """ [track_id, clip_id] + [start_pitch, pitch_span, start_time, time_span] """
-        self.send_message("/live/clip/remove/notes", [track_id, clip_id] + [0, 127, bar_number, 8])
+        self.send_message("/live/clip/remove/notes", [track_id, clip_id] + [0, 127, start_bar_number, time_span])
 
     def add_notes(
         self,

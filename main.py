@@ -23,8 +23,8 @@ def main():
     disp = dispatcher.Dispatcher()
     disp.map("/x", update_valence_handler, controller)
     disp.map("/y", update_arousal_handler, controller)
-
-    server = osc_server.ThreadingOSCUDPServer(("0.0.0.0", 5005), disp)
+    IP = "192.168.0.28"
+    server = osc_server.ThreadingOSCUDPServer((IP, 5005), disp)
     logger.info("Serving on %s:%d", server.server_address[0], server.server_address[1])
 
     try:
