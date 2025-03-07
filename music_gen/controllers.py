@@ -13,8 +13,10 @@ IP_ADDR = "192.168.0.28"
 PORT = 11000
 logger = logging.getLogger(__name__)
 
+
 class AbletonOSCController:
     """Main controller class that coordinates all APIs"""
+
     def __init__(self, send_port: int = PORT, ip: str = IP_ADDR):
         logger.info("Sending to Ableton at %s:%d", ip, send_port)
         self.client = udp_client.SimpleUDPClient(ip, send_port)
@@ -25,7 +27,8 @@ class AbletonOSCController:
         self.track = TrackApi(self.client)
 
     def remove_and_add_notes(
-        self, track_index: int, clip_index: int, midi_notes: list, start_bar_number: int, num_bars: int = 8):
+        self, track_index: int, clip_index: int, midi_notes: list, start_bar_number: int, num_bars
+    ):
         """Remove all notes from a clip and add new notes for a specified number of bars"""
         # Each note is (midi_note, start_time (in beats), duration, velocity, mute)
         self.clip.remove_notes(track_index, clip_index, start_bar_number, num_bars)
@@ -37,10 +40,12 @@ class AbletonOSCController:
         for i in range(3):
             self.track.set_volume(i, volume)
 
+
 class AbletonMetaController:
     """
     Piano is on track 1 (mids), zero index; Arpeggiator is on track 2 (high); Bass is on track 3 (bass)
     """
+
     def __init__(self):
         self.controller = AbletonOSCController()
         self.generator = MetaGenerator()
@@ -51,18 +56,19 @@ class AbletonMetaController:
     def setup(self):
         """Starts the beat listener and creates midi clips of length 16 bars in the first 3 tracks"""
         self._start_beat_listener()
-        self.controller.clip_slot.create_clip(0, 0, 16) # pad 1
-        self.controller.clip_slot.create_clip(1, 0, 16) # pad 2
-        self.controller.clip_slot.create_clip(2, 0, 16) # bass
+        self.controller.clip_slot.create_clip(0, 0, 16)  # pad 1
+        self.controller.clip_slot.create_clip(1, 0, 16)  # pad 2
+        self.controller.clip_slot.create_clip(2, 0, 16)  # bass
         logger.debug("Setting up AbletonMetaController: create empty clips and start listening to beats")
-        # self.controller.clip_slot.create_clip(3, 0, 16) # lead
-    
+        self.controller.clip_slot.create_clip(3, 0, 16)  # lead?
+        # TODO: trigger the scene
+
     def update_valence(self, valence: float) -> None:
         """Updates valence and modulates params based on that"""
         logger.debug("Updating valence: %f", valence)
         self.valence = valence
-        self._modulate_VALE(valence)
-    
+        self._modulate_valence(valence)
+
     def update_arousal(self, arousal: float) -> None:
         """Updates arousal and modulates params based on that"""
         logger.debug("Updating arousal: %f", arousal)
@@ -72,34 +78,50 @@ class AbletonMetaController:
     def _handle_beat(self, *args) -> None:
         """Handle incoming beat messages, sends to ableton new midi every 8 beats"""
         beat_number = args[1]
-        logger.debug("Current beat: %d", beat_number)
-        if beat_number == 22: # trigger on beat 14
+        # logger.debug("Current beat: %d", beat_number)
+        if beat_number == 22:  # trigger on beat 14
             # create event from beat 8 to beat 16
             logger.info("Creating chord for beat 8")
             self.add_events_to_ableton(start_bar_num=8, num_bars=4)
-        if beat_number == 14: # trigger on beat 0
+        if beat_number == 14:  # trigger on beat 0
             # create event from beat 0 to beat 8
             logger.info("Creating chord for beat 0")
             self.add_events_to_ableton(start_bar_num=0, num_bars=4)
 
-    def add_events_to_ableton(self, start_bar_num: int, num_bars: int = 8) -> None:
+    def add_events_to_ableton(self, start_bar_num: int, num_bars) -> None:
         """Generates the next chord for Ableton, removes all existing notes before adding new ones"""
         logger.debug("Adding events to Ableton - bar num %d", start_bar_num)
-        midi_events = self.generator.generate_next_events(self.valence, self.arousal)
+        midi_events, genetic_melody = self.generator.generate_next_events(self.valence, self.arousal)
         chord1 = midi_events[0]
         chord2 = midi_events[1]
-        self.controller.remove_and_add_notes(0, 0, chord1.to_ableton_osc(start_time=start_bar_num), start_bar_num, num_bars)
-        self.controller.remove_and_add_notes(0, 0, chord2.to_ableton_osc(start_time=start_bar_num + 4), start_bar_num + 4, num_bars)
-        self.controller.remove_and_add_notes(1, 0, chord1.to_ableton_osc(start_time=start_bar_num), start_bar_num, num_bars)
-        self.controller.remove_and_add_notes(1, 0, chord2.to_ableton_osc(start_time=start_bar_num + 4), start_bar_num + 4, num_bars)
+        self.controller.remove_and_add_notes(
+            0, 0, chord1.to_ableton_osc(start_time=start_bar_num), start_bar_num, num_bars
+        )
+        self.controller.remove_and_add_notes(
+            0, 0, chord2.to_ableton_osc(start_time=start_bar_num + 4), start_bar_num + 4, num_bars
+        )
+        self.controller.remove_and_add_notes(
+            1, 0, chord1.to_ableton_osc(start_time=start_bar_num), start_bar_num, num_bars
+        )
+        self.controller.remove_and_add_notes(
+            1, 0, chord2.to_ableton_osc(start_time=start_bar_num + 4), start_bar_num + 4, num_bars
+        )
         # bass, only the root note
-        self.controller.remove_and_add_notes(2, 0, [int(chord1.root - 12), start_bar_num, 8, chord1.velocity, 0], start_bar_num, num_bars)
+        self.controller.remove_and_add_notes(
+            2, 0, [int(chord1.root - 12), start_bar_num, 8, chord1.velocity, 0], start_bar_num, num_bars
+        )
+        # lead??
+        self.controller.remove_and_add_notes(
+            3, 0, genetic_melody.to_ableton_osc(start_time=start_bar_num), start_bar_num, 8
+        )
 
     def _modulate_arousal(self, arousal: float) -> None:
         bass_pulse = arousal * (0.7 - 0.5) + 0.5
-        self.controller.device.set_parameter(2, 1, 14, bass_pulse)  # parameter 14 of ableton bass controlling lfo of autofilter
+        self.controller.device.set_parameter(
+            2, 1, 14, bass_pulse
+        )  # parameter 14 of ableton bass controlling lfo of autofilter
         self.controller.song.set_tempo(85 + arousal * 30)  # oscillates between 80 and 115
-        self.controller.set_tracks_volume(0.6 + arousal * 0.25) 
+        self.controller.set_tracks_volume(0.6 + arousal * 0.25)
 
     def _modulate_valence(self, valence: float) -> None:
         # TODO: maybe modulate saturator?
@@ -107,6 +129,7 @@ class AbletonMetaController:
 
     def stop(self):
         """Stops the beat listener server thread"""
+        # TODO: delete clips as well
         if self.server_thread:
             self.server_thread.join(timeout=5)
 

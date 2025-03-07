@@ -2,20 +2,23 @@ import logging
 from pythonosc import dispatcher, osc_server
 from music_gen.controllers import AbletonMetaController
 
-#TODO: put all logs in a file
+# TODO: put all logs in a file
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
 
 def update_valence_handler(unused_addr, args, valence):
     controller = args[0]
     logger.debug("Received valence: %f", valence)
     controller.update_valence(valence)
 
+
 def update_arousal_handler(unused_addr, args, arousal):
     controller = args[0]
     logger.debug("Received arousal: %f", arousal)
     controller.update_arousal(arousal)
-    
+
+
 def main():
     controller = AbletonMetaController()
     controller.setup()
@@ -33,6 +36,7 @@ def main():
         logger.info("Shutting down server...")
         controller.stop()
         server.shutdown()
+
 
 if __name__ == "__main__":
     main()

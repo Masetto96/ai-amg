@@ -1,6 +1,7 @@
 """
 https://github.com/ideoforms/AbletonOSC
 """
+
 import time
 from typing import Any, List, Tuple
 from pythonosc import udp_client
@@ -27,15 +28,17 @@ class ClipAPI(OSCBase):
     def stop_clip(self, track_id: int, clip_id: int) -> None:
         self.send_message("/live/clip/stop", [track_id, clip_id])
 
-    def remove_notes(self, track_id: int, clip_id: int, start_bar_number:int, time_span:int) -> None:
-        """ [track_id, clip_id] + [start_pitch, pitch_span, start_time, time_span] """
-        self.send_message("/live/clip/remove/notes", [track_id, clip_id] + [0, 127, start_bar_number, time_span])
+    def remove_notes(self, track_id: int, clip_id: int, start_bar_number: int, time_span: int) -> None:
+        """[track_id, clip_id] + [start_pitch, pitch_span, start_time, time_span]"""
+        self.send_message(
+            "/live/clip/remove/notes", [track_id, clip_id] + [0, 127, start_bar_number, time_span]
+        )
 
     def add_notes(
         self,
         track_id: int,
         clip_id: int,
-        notes: List[Tuple[int, float, float, int, int]], 
+        notes: List[Tuple[int, float, float, int, int]],
         # note_format = (midi_note, start_time, duration, velocity, mute)
     ) -> None:
         """
@@ -47,13 +50,10 @@ class ClipAPI(OSCBase):
         """
         self.send_message("/live/clip/add/notes", [track_id, clip_id] + notes)
 
+
 class ClipSlotAPI(OSCBase):
-    def create_clip(
-        self, track_index: int, clip_index: int, length_in_bars: int
-    ) -> None:
-        self.send_message(
-            "/live/clip_slot/create_clip", [track_index, clip_index, length_in_bars]
-        )
+    def create_clip(self, track_index: int, clip_index: int, length_in_bars: int) -> None:
+        self.send_message("/live/clip_slot/create_clip", [track_index, clip_index, length_in_bars])
 
     def delete_clip(self, track_index: int, clip_index: int) -> None:
         self.send_message("/live/clip_slot/delete_clip", [track_index, clip_index])
@@ -84,16 +84,16 @@ class SongAPI(OSCBase):
 
 
 class DeviceAPI(OSCBase):
-    def set_parameter(
-        self, track_index: int, device_index: int, parameter_index: int, value: float
-    ) -> None:
+    def set_parameter(self, track_index: int, device_index: int, parameter_index: int, value: float) -> None:
         self.send_message(
             "/live/device/set/parameter/value",
             [track_index, device_index, parameter_index, value],
         )
 
+
 class TrackApi(OSCBase):
     def set_volume(self, track_index: int, volume: float) -> None:
         self.send_message("/live/track/set/volume", [track_index, volume])
+
     def set_send(self, track_index: int, send_index: int, value: float) -> None:
         self.send_message("/live/track/set/send", [track_index, send_index, value])

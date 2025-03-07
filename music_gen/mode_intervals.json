@@ -1,44 +1,27 @@
 {
     "ionian": {
-        "tonal_center": "C",
-        "midi_note": 60,
-        "intervals": [2, 2, 1, 2, 2, 2, 1],
-        "scale_degrees": [0, 2, 4, 5, 7, 9, 11]
+      "intervals": [0, 2, 4, 5, 7, 9, 11],
+      "characteristic_intervals": [11, 4, 5, 7]
     },
     "dorian": {
-        "tonal_center": "D",
-        "midi_note": 62,
-        "intervals": [2, 1, 2, 2, 2, 1, 2],
-        "scale_degrees": [0, 2, 3, 5, 7, 9, 10]
-    },
-    "phrygian": {
-        "tonal_center": "E",
-        "midi_note": 64,
-        "intervals": [1, 2, 2, 2, 1, 2, 2],
-        "scale_degrees": [0, 1, 3, 5, 7, 8, 10]
+      "intervals": [0, 2, 3, 5, 7, 9, 10],
+      "characteristic_intervals": [9, 3]
     },
     "lydian": {
-        "tonal_center": "F",
-        "midi_note": 65,
-        "intervals": [2, 2, 2, 1, 2, 2, 1],
-        "scale_degrees": [0, 2, 4, 6, 7, 9, 11]
+      "intervals": [0, 2, 4, 6, 7, 9, 11],
+      "characteristic_intervals": [6, 11, 9]
     },
     "mixolydian": {
-        "tonal_center": "G",
-        "midi_note": 67,
-        "intervals": [2, 2, 1, 2, 2, 1, 2],
-        "scale_degrees": [0, 2, 4, 5, 7, 9, 10]
+      "intervals": [0, 2, 4, 5, 7, 9, 10],
+      "characteristic_intervals": [10, 4]
     },
     "aeolian": {
-        "tonal_center": "A",
-        "midi_note": 69,
-        "intervals": [2, 1, 2, 2, 1, 2, 2],
-        "scale_degrees": [0, 2, 3, 5, 7, 8, 10]
+      "intervals": [0, 2, 3, 5, 7, 8, 10],
+      "characteristic_intervals": [8, 7, 3]
     },
-    "locrian": {
-        "tonal_center": "B",
-        "midi_note": 71,
-        "intervals": [1, 2, 2, 1, 2, 2, 2],
-        "scale_degrees": [0, 1, 3, 5, 6, 8, 10]
+    "phrygian": {
+      "intervals": [0, 1, 3, 5, 7, 8, 10],
+      "characteristic_intervals": [1]
     }
-}
+  }
+  
