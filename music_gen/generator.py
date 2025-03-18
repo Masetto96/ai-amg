@@ -1,4 +1,3 @@
-from math import log
 import random
 import json
 import logging

@@ -2,6 +2,7 @@ import random
 from re import A
 import threading
 import logging
+from tkinter import NO
 from typing import Any, List, Tuple
 from pythonosc import udp_client
 from pythonosc.dispatcher import Dispatcher
@@ -9,15 +10,14 @@ from pythonosc.osc_server import BlockingOSCUDPServer
 from music_gen.generator import MetaGenerator
 from music_gen.ableton_api import ClipAPI, ClipSlotAPI, DeviceAPI, SongAPI, TrackApi
 
-IP_ADDR = "192.168.0.28"
-PORT = 11000
+PORT = 11000 # deafault port on which AbletonOSC listens to
 logger = logging.getLogger(__name__)
 
 
 class AbletonOSCController:
     """Main controller class that coordinates all APIs"""
 
-    def __init__(self, send_port: int = PORT, ip: str = IP_ADDR):
+    def __init__(self, send_port: int = PORT, ip: str = None):
         logger.info("Sending to Ableton at %s:%d", ip, send_port)
         self.client = udp_client.SimpleUDPClient(ip, send_port)
         self.song = SongAPI(self.client)
@@ -46,8 +46,8 @@ class AbletonMetaController:
     Piano is on track 1 (mids), zero index; Arpeggiator is on track 2 (high); Bass is on track 3 (bass)
     """
 
-    def __init__(self):
-        self.controller = AbletonOSCController()
+    def __init__(self, ip_addr: str):
+        self.controller = AbletonOSCController(ip=ip_addr)
         self.generator = MetaGenerator()
         self.valence = 0.5
         self.arousal = 0.5
