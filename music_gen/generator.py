@@ -98,6 +98,6 @@ class MetaGenerator:
         min_velocity = 50
         max_velocity = 127
         v = int(random.uniform(min_velocity, max_velocity * arousal))
-        logger.debug("Arousal: %f, Computed velocity: %d", arousal, v)
+        logger.info("Arousal: %f, Computed velocity: %d", arousal, v)
         # v = min(max_velocity, v)
         return max(min_velocity, v) # making sure it's not more than 127

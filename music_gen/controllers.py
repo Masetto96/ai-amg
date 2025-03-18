@@ -1,8 +1,5 @@
-import random
-from re import A
 import threading
 import logging
-from tkinter import NO
 from typing import Any, List, Tuple
 from pythonosc import udp_client
 from pythonosc.dispatcher import Dispatcher
@@ -17,7 +14,7 @@ class AbletonOSCController:
     """Main controller class that coordinates all APIs"""
 
     def __init__(self, send_port: int = PORT, ip: str = None):
-        logger.info("Sending to Ableton at %s:%d", ip, send_port)
+        logger.debug("Sending to Ableton at %s:%d", ip, send_port)
         self.client = udp_client.SimpleUDPClient(ip, send_port)
         self.song = SongAPI(self.client)
         self.clip_slot = ClipSlotAPI(self.client)
@@ -56,18 +53,19 @@ class AbletonMetaController:
         self.controller.clip_slot.create_clip(0, 0, 16) # pad 1
         self.controller.clip_slot.create_clip(1, 0, 16) # pad 2
         self.controller.clip_slot.create_clip(2, 0, 16) # bass
-        logger.debug("Setting up AbletonMetaController: create empty clips and start listening to beats")
+        logger.info("Setting up AbletonMetaController: created empty clips and started listening to beats")
+        # TODO: add a check if ableton reply if not throw error
         # self.controller.clip_slot.create_clip(3, 0, 16) # lead
     
     def update_valence(self, valence: float) -> None:
         """Updates valence and modulates params based on that"""
-        logger.debug("Updating valence: %f", valence)
+        # logger.debug("Updating valence: %f", valence)
         self.valence = valence
-        self._modulate_VALE(valence)
+        self._modulate_valence(valence)
     
     def update_arousal(self, arousal: float) -> None:
         """Updates arousal and modulates params based on that"""
-        logger.debug("Updating arousal: %f", arousal)
+        # logger.debug("Updating arousal: %f", arousal)
         self.arousal = arousal
         self._modulate_arousal(arousal)
 
@@ -117,7 +115,7 @@ class AbletonMetaController:
             dispatcher = Dispatcher()
             dispatcher.map("/live/song/get/beat", self._handle_beat)
             server = BlockingOSCUDPServer((ip, port), dispatcher)
-            logger.info("Listening for beats on %s:%d", ip, port)
+            logger.debug("Listening for beats on %s:%d", ip, port)
             server.serve_forever()
 
         # Start server in background thread

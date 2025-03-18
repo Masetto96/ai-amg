@@ -8,7 +8,7 @@ import os
 load_dotenv()
 
 #TODO: put all logs in a file
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 IP_ADDR = os.getenv('IP_ADDR')
@@ -31,7 +31,7 @@ def main():
     disp.map("/x", update_valence_handler, controller)
     disp.map("/y", update_arousal_handler, controller)
     server = osc_server.ThreadingOSCUDPServer((IP_ADDR, 5005), disp)
-    logger.info("Serving on %s:%d", server.server_address[0], server.server_address[1])
+    logger.debug("Receiving valence and arousal on %s:%d", server.server_address[0], server.server_address[1])
 
     try:
         server.serve_forever()
