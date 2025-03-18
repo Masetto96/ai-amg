@@ -1,10 +1,17 @@
 import logging
 from pythonosc import dispatcher, osc_server
 from music_gen.controllers import AbletonMetaController
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 #TODO: put all logs in a file
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+IP_ADDR = os.getenv('IP_ADDR')
 
 def update_valence_handler(unused_addr, args, valence):
     controller = args[0]
@@ -17,14 +24,13 @@ def update_arousal_handler(unused_addr, args, arousal):
     controller.update_arousal(arousal)
     
 def main():
-    controller = AbletonMetaController()
+    controller = AbletonMetaController(ip_addr=IP_ADDR)
     controller.setup()
 
     disp = dispatcher.Dispatcher()
     disp.map("/x", update_valence_handler, controller)
     disp.map("/y", update_arousal_handler, controller)
-    IP = "192.168.0.28"
-    server = osc_server.ThreadingOSCUDPServer((IP, 5005), disp)
+    server = osc_server.ThreadingOSCUDPServer((IP_ADDR, 5005), disp)
     logger.info("Serving on %s:%d", server.server_address[0], server.server_address[1])
 
     try:
